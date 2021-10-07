@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="" xmlns="http://www.w3.org/1999/xhtml">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <link href="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/img/favicon.ico" rel="shortcut icon"/>
+  <title>
+   Alias-Free Generative Adversarial Networks (StyleGAN3)
+  </title>
+  <meta content="Alias-Free Generative Adversarial Networks (StyleGAN3)" property="og:title"/>
+  <meta content="We eliminate “texture sticking” in GANs through a comprehensive overhaul of all signal processing aspects of the generator, paving the way for better synthesis of video and animation." name="description" property="og:description"/>
+  <meta content="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/img/stylegan3-teaser-1920x1006.png" property="og:image"/>
+  <meta content="https://nvlabs.github.io/stylegan3" property="og:url"/>
+  <style type="text/css">
+   :root {
+    --small-thumb-border-radius: 2px;
+    --larger-thumb-border-radius: 3px;
+}
+
+html {
+  font-size: 14px;
+  line-height: 1.6;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media(min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+body {
+    margin: 0px;
+    padding: 0px;
+}
+
+.base-grid,
+.n-header,
+.n-byline,
+.n-title,
+.n-article,
+.n-footer {
+    display: grid;
+    justify-items: stretch;
+    grid-template-columns: [screen-start] 8px [page-start kicker-start text-start gutter-start middle-start] 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr [text-end page-end gutter-end kicker-end middle-end] 8px [screen-end];
+    grid-column-gap: 8px;
+}
+
+.grid {
+  display: grid;
+  grid-column-gap: 8px;
+}
+
+@media(min-width: 768px) {
+    .base-grid,
+    .n-header,
+    .n-byline,
+    .n-title,
+    .n-article,
+    .n-footer {
+        display: grid;
+        justify-items: stretch;
+        grid-template-columns: [screen-start] 1fr [page-start kicker-start middle-start text-start] 45px 45px 45px 45px 45px 45px 45px 45px [ kicker-end text-end gutter-start] 45px [middle-end] 45px [page-end gutter-end] 1fr [screen-end];
+        grid-column-gap: 16px;
+    }
+
+    .grid {
+        grid-column-gap: 16px;
+    }
+}
+
+@media(min-width: 1000px) {
+    .base-grid,
+    .n-header,
+    .n-byline,
+    .n-title,
+    .n-article,
+    .n-footer {
+        display: grid;
+        justify-items: stretch;
+        grid-template-columns: [screen-start] 1fr [page-start kicker-start] 50px [middle-start] 50px [text-start kicker-end] 50px 50px 50px 50px 50px 50px 50px 50px [text-end gutter-start] 50px [middle-end] 50px [page-end gutter-end] 1fr [screen-end];
+        grid-column-gap: 16px;
+    }
+
+    .grid {
+        grid-column-gap: 16px;
+    }
+}
+
+@media (min-width: 1180px) {
+    .base-grid,
+    .n-header,
+    .n-byline,
+    .n-title,
+    .n-article,
+    .n-footer {
+        display: grid;
+        justify-items: stretch;
+        grid-template-columns: [screen-start] 1fr [page-start kicker-start] 60px [middle-start] 60px [text-start kicker-end] 60px 60px 60px 60px 60px 60px 60px 60px [text-end gutter-start] 60px [middle-end] 60px [page-end gutter-end] 1fr [screen-end];
+        grid-column-gap: 32px;
+    }
+    .grid {
+        grid-column-gap: 32px;
+    }
+
+}
+
+.base-grid {
+  grid-column: screen;
+}
+
+/* default grid column assignments */
+.n-title > *  {
+  grid-column: text;
+}
+
+.n-article > *  {
+  grid-column: text;
+}
+
+.n-header {
+    height: 0px;
+}
+
+.n-footer {
+    height: 60px;
+}
+
+.n-title {
+    padding: 4rem 0 1.5rem;
+}
+
+.l-page {
+    grid-column: page;
+}
+
+.l-article {
+    grid-column: text;
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: 1em;
+}
+
+.pixelated {
+    image-rendering: pixelated;
+}
+
+strong {
+    font-weight: 600;
+}
+
+/*------------------------------------------------------------------*/
+/* title */
+.n-title h1 {
+    font-family: "Barlow",system-ui,Arial,sans-serif;
+    color:#082333;
+    grid-column: text;
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.1em;
+    margin: 0 0 0.5rem;
+    text-align: center;
+}
+
+@media (min-width: 768px) {
+    .n-title h1 {
+        font-size: 50px;
+    }
+}
+
+/*------------------------------------------------------------------*/
+/* article */
+.n-article {
+    color: rgb(33, 40, 53);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding-top: 2rem;
+}
+
+.n-article h2 {
+    contain: layout style;
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 1.25em;
+    margin: 2rem 0 1.5rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+    .n-article {
+        line-height: 1.7;
+    }
+
+    .n-article h2 {
+        font-size: 36px;
+    }
+}
+
+/*------------------------------------------------------------------*/
+/* byline */
+
+.n-byline {
+  contain: style;
+  overflow: hidden;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.8rem;
+  line-height: 1.8em;
+  padding: 1.5rem 0;
+  min-height: 1.8em;
+}
+
+.n-byline .byline {
+  grid-column: text;
+}
+
+.byline {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+}
+
+.grid {
+    display: grid;
+    grid-column-gap: 8px;
+}
+
+@media (min-width: 768px) {
+.grid {
+    grid-column-gap: 16px;
+}
+}
+
+.n-byline p {
+  margin: 0;
+}
+
+.n-byline h3 {
+    font-size: 0.6rem;
+    font-weight: 400;
+    color: rgba(0, 0, 0, 0.5);
+    margin: 0;
+    text-transform: uppercase;
+}
+.n-byline .authors-affiliations {
+  grid-column-end: span 2;
+  grid-template-columns: 1fr 1fr;
+}
+
+/*------------------------------------------------------------------*/
+/* figures */
+.figure {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+figcaption, .figcaption {
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 12px;
+    line-height: 1.5em;
+}
+
+ul.authors {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    text-align: center;
+}
+ul.authors li {
+    padding: 0 0.5rem;
+    display: inline-block;
+}
+
+ul.authors sup {
+    color: rgb(126,126,126);
+}
+
+ul.authors.affiliations  {
+    margin-top: 0.5rem;
+}
+
+ul.authors.affiliations li {
+    color: rgb(126,126,126);
+}
+
+/* Download section columns.  This switches between two layouts::after
+
+- two columns on larger viewport sizes: side-by-side paper thumb and links
+- single column: no thumb
+ */
+.download-section {
+    display: grid;
+    grid-template-areas: "links";
+}
+.download-section h4 {
+    margin-left: 2.5rem;
+    display: block;
+}
+.download-thumb {
+    grid-area: thumb;
+    display: none;
+}
+.download-links {
+    grid-area: links;
+}
+img.dropshadow {
+    box-shadow: 0 1px 10px rgba(0,0,0, 0.3);
+}
+
+@media(min-width: 1180px) {
+    .download-section {
+        display: grid;
+        grid-template-areas: "thumb links";
+    }
+    .download-thumb {
+        display: block;
+    }
+}
+
+/* For BibTeX */
+pre {
+    font-size: 0.9em;
+    padding-left: 7px;
+    padding-right: 7px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-radius: 3px;
+    background-color: rgb(235, 235, 235);
+    overflow-x: auto;
+}
+
+/* video caption */
+
+.video {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.videocaption {
+    display: flex;
+    font-size: 16px;
+    line-height: 1.5em;
+    margin-bottom: 1rem;
+    justify-content: center;
+}
+   .disable-selection {
+         user-select: none;
+    -moz-user-select: none; /* Firefox */
+     -ms-user-select: none; /* Internet Explorer */
+  -khtml-user-select: none; /* KHTML browsers (e.g. Konqueror) */
+ -webkit-user-select: none; /* Chrome, Safari, and Opera */
+ -webkit-touch-callout: none; /* Disable Android and iOS callouts*/
+}
+
+.hidden {
+    display: none;
+}
+
+h3.figtitle {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.fig-title-line {
+    grid-template-columns: 2fr 0.75fr;
+}
+
+.fig-thumb-image-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+}
+
+.fig-thumb-image-row-item {
+    width: 100%;
+    min-height: auto;
+    border-radius: var(--small-thumb-border-radius);
+}
+
+.fig-dataset-button {
+    border-color: rgba(0,0,0,0);
+    border-width: 1px;
+    border-style: solid;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.fig-dataset-button.active {
+    border-color: rgba(0,0,0,0.7);
+    border-width: 1px;
+    border-style: solid;
+    opacity: 1.0;
+}
+
+.grid {
+    display: grid;
+    grid-column-gap: 8px;
+}
+
+.fig-3-image-row {
+    margin-top: 1em;
+    grid-template-columns: 1fr 1.3fr 1fr;
+    grid-template-rows: 1fr;
+}
+
+.fig-3-image-item {
+    justify-self: center;
+    align-self: center;
+    width: 100%;
+    border-radius: var(--larger-thumb-border-radius);
+}
+
+/*---------------------------------------------------------------------*/
+.fig-slider {
+    grid-template-columns: auto 2fr;
+    grid-template-rows: 1fr;
+    margin-top: 1em;
+    align-items: start;
+    justify-content: center;
+}
+
+.fig-slider img.play_button {
+    margin-right: 8px;
+    cursor: pointer;
+    justify-self: center;
+}
+.fig-slider svg {
+    touch-action: none;
+}
+
+.fig-preload {
+    display: none;
+}
+/*---------------------------------------------------------------------*/
+  </style>
+  <!-- inline stylesheet files into the above <style> element -->
+  <link href="https://fonts.googleapis.com/css?family=Montserrat|Segoe+UI" rel="stylesheet"/>
+  <link as="image" href="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/img/paper-pdf-512.png" rel="preload"/>
+  <link as="image" href="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/img/stylegan3-teaser-1920x1006.png" rel="preload"/>
+ </head>
+ <body>
+  <div class="n-header">
+  </div>
+  <div class="n-title">
+   <h1>
+    Alias-Free Generative Adversarial Networks (StyleGAN3)
+   </h1>
+  </div>
+  <div class="n-byline">
+   <div class="byline">
+    <ul class="authors">
+     <li>
+      Tero Karras
+      <sup>
+       1
+      </sup>
+     </li>
+     <li>
+      Miika Aittala
+      <sup>
+       1
+      </sup>
+     </li>
+     <li>
+      Samuli Laine
+      <sup>
+       1
+      </sup>
+     </li>
+     <li>
+      Erik Härkönen
+      <sup>
+       2, 1
+      </sup>
+     </li>
+     <li>
+      Janne Hellsten
+      <sup>
+       1
+      </sup>
+     </li>
+     <li>
+      Jaakko Lehtinen
+      <sup>
+       1, 2
+      </sup>
+     </li>
+     <li>
+      Timo Aila
+      <sup>
+       1
+      </sup>
+     </li>
+    </ul>
+    <ul class="authors affiliations">
+     <li>
+      <sup>
+       1
+      </sup>
+      NVIDIA
+     </li>
+     <li>
+      <sup>
+       2
+      </sup>
+      Aalto University
+     </li>
+    </ul>
+   </div>
+  </div>
+  <div class="n-article">
+   <div class="l-article">
+    <img src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/img/stylegan3-teaser-1920x1006.png" width="100%"/>
+   </div>
+   <h2 id="abstract">
+    Abstract
+   </h2>
+   <p>
+    We observe that despite their hierarchical convolutional nature, the synthesis process of typical generative adversarial networks depends on absolute pixel coordinates in an unhealthy manner. This manifests itself as, e.g., detail appearing to be glued to image coordinates instead of the surfaces of depicted objects. We trace the root cause to careless signal processing that causes aliasing in the generator network. Interpreting all signals in the network as continuous, we derive generally applicable, small architectural changes that guarantee that unwanted information cannot leak into the hierarchical synthesis process. The resulting networks match the FID of StyleGAN2 but differ dramatically in their internal representations, and they are fully equivariant to translation and rotation even at subpixel scales. Our results pave the way for generative models better suited for video and animation.
+   </p>
+   <h2 id="links">
+    Links
+   </h2>
+   <div class="grid download-section">
+    <div class="download-thumb">
+     <a href="https://nvlabs-fi-cdn.nvidia.com/stylegan3/stylegan3-paper.pdf">
+      <img class="dropshadow" src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/img/paper-pdf-512.png"/>
+     </a>
+    </div>
+    <div class="download-links">
+     <ul>
+      <li>
+       <a href="https://nvlabs-fi-cdn.nvidia.com/stylegan3/stylegan3-paper.pdf">
+        Paper PDF
+       </a>
+      </li>
+      <li>
+       <a href="https://arxiv.org/abs/2106.12423">
+        arXiv
+       </a>
+      </li>
+      <li>
+       <a href="https://github.com/NVlabs/stylegan3">
+        Code release on GitHub
+       </a>
+      </li>
+     </ul>
+    </div>
+   </div>
+   <h2 id="videos">
+    Videos
+   </h2>
+   <p>
+    The first two videos demonstrate the “texture sticking” issue in in two “cinemagraphs” created using generators trained on the unaligned FFHQ-U dataset. The looping videos show small random walks around a central point in the latent space. Observe how the details (hairs, wrinkles, etc.) the StyleGAN2 result (left) appear to be glued to the screen coordinates while the face moves under it, while all details transform coherently in our result (right).
+   </p>
+   <div class="l-page video">
+    <video controls="" loop="" width="100%">
+     <!-- t=0.001 is a hack to make iPhone show video thumbnail -->
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_0_ffhq_cinemagraphs.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 1a:
+      </strong>
+      FFHQ-U Cinemagraph
+     </div>
+    </div>
+   </div>
+   <div class="l-page video">
+    <video controls="" loop="" width="100%">
+     <!-- t=0.001 is a hack to make iPhone show video thumbnail -->
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_1_ffhq_cinemagraphs.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 1b:
+      </strong>
+      FFHQ-U Cinemagraph
+     </div>
+    </div>
+   </div>
+   <p>
+    The following videos show interpolations between hand-picked latent points in several datasets. Observe again how the textural detail appears fixed in the StyleGAN2 result, but transforms smoothly with the rest of the scene in the alias-free StyleGAN3.
+   </p>
+   <div class="l-page video">
+    <video controls="" loop="" width="100%">
+     <!-- t=0.001 is a hack to make iPhone show video thumbnail -->
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_2_metfaces_interpolations.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 2:
+      </strong>
+      MetFaces interpolations
+     </div>
+    </div>
+   </div>
+   <div class="l-page video">
+    <video controls="" loop="" width="100%">
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_3_afhq_interpolations.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 3:
+      </strong>
+      AFHQv2 interpolations
+     </div>
+    </div>
+   </div>
+   <p>
+    We note, in particular, how StyleGAN3 appears to have learned to mimic camera motion in the Beaches dataset.
+   </p>
+   <div class="l-page video">
+    <video controls="" loop="" width="100%">
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_4_beaches_interpolations.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 4:
+      </strong>
+      Beaches interpolations
+     </div>
+    </div>
+   </div>
+   <p>
+    The following video illustrates translational equivariance, or lack thereof, in several “bridge” configurations, and aims to visually demonstrate the meaning of EQ-T equivariance scores. In all panels, the first image is the result of running the corresponding generator with analytically translated Fourier input features. The second image has obtained from the first by “untransforming” the pixels using the inverse translation by an extremely high-quality resampling filter. For a perfectly equivariant generator, the first two images are the same, modulo image boundaries (not shown due to light cropping) and numerical noise from the resampling. The third image visualizes the difference of the first two images. As can be seen, EQ-T scores in the 60 dB range are essentially visually perfect. Please consult the Appendix for technical details.
+   </p>
+   <div class="l-page video">
+    <video controls="" loop="" width="100%">
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_5_figure_3_left_equivariance_quality.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 5:
+      </strong>
+      Visualization of translation equivariance (Figure 3, left)
+     </div>
+    </div>
+   </div>
+   <p>
+    The following video illustrates rotation equivariance in a manner similar to the previous video. Our StyleGAN3-T, which has only been designed for translation equivariance, fails completely, as expected. The following comparison method is a variant of StyleGAN3-T that uses a p4 symmetric G-CNN for rotation equivariance. The model shows a cyclic behavior, where the rotation is exact at multiples of 90 degrees but breaks down at intermediate angles. Our StyleGAN3-R features high-quality, though not visually perfect rotation equivariance.
+   </p>
+   <div class="l-article video">
+    <video controls="" loop="" width="100%">
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_6_figure_5_right_g-cnn_comparison.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 6:
+      </strong>
+      Visualization of rotation equivariance (Figure 5, right)
+     </div>
+    </div>
+   </div>
+   <p>
+    The following video illustrates the aliasing inherent to pointwise nonlinearities (here, ReLU), and our solution.
+    <strong>
+     Left column:
+    </strong>
+    The original bandlimited signal z. Its ideal version (top) is sampled (middle), and then reconstructed from the samples (bottom). As the sampling rate is high enough to capture the signal, no aliasing occurs.
+    <strong>
+     Middle column:
+    </strong>
+    applying a pointwise non-linearity in the continuous domain (top) yields a non-smooth function due to clipping at the zero crossings. Sampling this signal (middle) and reconstructing the function from the samples (bottom) yields an aliased result, as the high frequencies created by the clipping cannot be represented by the sample grid.
+    <strong>
+     Right column:
+    </strong>
+    applying a low-pass filter to the ReLUed function in the continuous domain (top) yields again a smooth function; sampling it (middle) allows a faithful reconstruction (bottom).
+   </p>
+   <div class="l-article video">
+    <video controls="" loop="" width="100%">
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_7_figure_2_right_filtered_nonlinearity.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 7:
+      </strong>
+      Visualization of the filtered non-linearity
+     </div>
+    </div>
+   </div>
+   <p>
+    The below video compares StyleGAN3’s internal activations to those of StyleGAN2 (top). Our alias-free translation (middle) and rotation (bottom) equivariant networks build the image in a radically different manner from what appear to be multi-scale phase signals that follow the features seen in the final image. Due to our alias-free construction, these signals must control both the appearance of as well as the relative positions of image features; we hypothesize that the local oriented oscillations form a basis that enables hierarchical localization. Our construction appears to make it natural for the network to construct them from the low-frequency input Fourier features.
+   </p>
+   <div class="l-page video">
+    <video controls="" loop="" width="100%">
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_8_internal_activations.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 8:
+      </strong>
+      Internal activations
+     </div>
+    </div>
+   </div>
+   <p>
+    The following video clarifies the slice visualization of Figure 1, right.
+   </p>
+   <div class="l-article video">
+    <video controls="" loop="" width="100%">
+     <source src="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_9_slice_visualization.mp4#t=0.001" type="video/mp4"/>
+    </video>
+    <div class="videocaption">
+     <div>
+      <strong>
+       Video 9:
+      </strong>
+      Slice visualization. Top row: StyleGAN3-T, bottom row: StyleGAN2.
+     </div>
+    </div>
+   </div>
+   <h2 id="citation">
+    Citation
+   </h2>
+   <pre><code>@inproceedings{Karras2021,
+  author = {Tero Karras and Miika Aittala and Samuli Laine and Erik H\"ark\"onen and Janne Hellsten and Jaakko Lehtinen and Timo Aila},
+  title = {Alias-Free Generative Adversarial Networks},
+  booktitle = {Proc. NeurIPS},
+  year = {2021}
+}</code></pre>
+   <h2 id="license">
+    License
+   </h2>
+   <p>
+    Images, text and video files on this site are made freely available for non-commercial use under the
+    <a href="https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/LICENSE.txt">
+     Creative Commons CC BY-NC 4.0 license
+    </a>
+    . Feel free to use any of the material in your own work, as long as you give us appropriate credit by mentioning the title and author list of our paper.
+   </p>
+   <h2 id="acknowledgments">
+    Acknowledgments
+   </h2>
+   <p>
+    We thank David Luebke, Ming-Yu Liu, Koki Nagano, Tuomas Kynkäänniemi, and Timo Viitanen for reviewing early drafts and helpful suggestions. Frédo Durand for early discussions. Tero Kuosmanen for maintaining our compute infrastructure. AFHQ authors for an updated version of their dataset. Getty Images for the training images in the BEACHES dataset.
+   </p>
+  </div>
+  <div class="n-footer">
+  </div>
+ </body>
+</html>
