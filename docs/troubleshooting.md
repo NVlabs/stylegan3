@@ -18,6 +18,7 @@ Make sure you've installed everything listed on the requirements section in the 
 - **ninja**
   - PyTorch uses [Ninja](https://ninja-build.org/) as its build system.
 - **GCC** (Linux) or **Visual Studio** (Windows)
+  - GCC 7.x or later is required.  Earlier versions such as GCC 6.3 [are known not to work](https://github.com/NVlabs/stylegan3/issues/2).
 
 #### Why is CUDA toolkit installation necessary?
 
