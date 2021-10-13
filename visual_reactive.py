@@ -155,13 +155,13 @@ def visual_reactive_interpolation(
         del vgg16
 
     elif encoder == 'clip':
-        # Runs OOM for an 8 GB card, gotta clean this up...
-        device_total_memory_mb = torch.cuda.get_device_properties(device).total_memory / 2**20  # bytes to MB
-        if device_total_memory_mb < 8000:
-            ctx.fail('Need more memory to run this model!')
         print('Loading CLIP model...')
-        import clip
+        try:
+            import clip
+        except ImportError:
+            raise ImportError('clip not installed! Install it via "pip install git+https://github.com/openai/CLIP.git"')
         model, preprocess = clip.load('ViT-B/32', device=device)
+        model = model.requires_grad_(False)  # Otherwise OOM
 
 
     print('Loading Generator...')
@@ -236,7 +236,7 @@ def visual_reactive_interpolation(
         elif encoder == 'clip':
             frame = Image.fromarray(frame)  # [0, 255]
             frame = preprocess(frame).unsqueeze(0).to(device)
-            fake_z = model.encode_image(frame).detach()
+            fake_z = model.encode_image(frame)
 
         # Normalize the latent so that it's ~N(0, 1), or divide by its .max()
         # fake_z = fake_z / fake_z.max()
