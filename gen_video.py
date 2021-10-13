@@ -100,7 +100,8 @@ def parse_range(s: Union[str, List[int]]) -> List[int]:
     ranges = []
     range_re = re.compile(r'^(\d+)-(\d+)$')
     for p in s.split(','):
-        if m := range_re.match(p):
+        m = range_re.match(p)
+        if m:
             ranges.extend(range(int(m.group(1)), int(m.group(2))+1))
         else:
             ranges.append(int(p))
@@ -116,7 +117,8 @@ def parse_tuple(s: Union[str, Tuple[int,int]]) -> Tuple[int, int]:
         '0,1' returns (0,1)
     '''
     if isinstance(s, tuple): return s
-    if m := re.match(r'^(\d+)[x,](\d+)$', s):
+    m = re.match(r'^(\d+)[x,](\d+)$', s)
+    if m:
         return (int(m.group(1)), int(m.group(2)))
     raise ValueError(f'cannot parse tuple {s}')
 

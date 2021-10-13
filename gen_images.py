@@ -31,7 +31,8 @@ def parse_range(s: Union[str, List]) -> List[int]:
     ranges = []
     range_re = re.compile(r'^(\d+)-(\d+)$')
     for p in s.split(','):
-        if m := range_re.match(p):
+        m = range_re.match(p)
+        if m:
             ranges.extend(range(int(m.group(1)), int(m.group(2))+1))
         else:
             ranges.append(int(p))

@@ -41,7 +41,8 @@ def parse_tuple(s: str) -> Tuple[int, int]:
         '4x2' returns (4,2)
         '0,1' returns (0,1)
     '''
-    if m := re.match(r'^(\d+)[x,](\d+)$', s):
+    m = re.match(r'^(\d+)[x,](\d+)$', s)
+    if m:
         return (int(m.group(1)), int(m.group(2)))
     raise ValueError(f'cannot parse tuple {s}')
 
