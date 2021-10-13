@@ -81,15 +81,15 @@ def make_transform(translate: Tuple[float,float], angle: float):
 
 def gen_interp_video(G,
                      mp4: str,
-                     seeds,
-                     shuffle_seed=None,
-                     w_frames=60*4,
-                     kind='cubic',
-                     grid_dims=(1,1),
-                     num_keyframes=None,
-                     wraps=2,
-                     psi=1,
-                     device=torch.device('cuda'),
+                     seeds: List[int],
+                     shuffle_seed: int = None,
+                     w_frames: int = 60*4,
+                     kind: str = 'cubic',
+                     grid_dims: Tuple[int] = (1,1),
+                     num_keyframes: int = None,
+                     wraps: int = 2,
+                     psi: float = 1.0,
+                     device: torch.device = torch.device('cuda'),
                      stabilize_video: bool = True,
                      **video_kwargs):
     grid_w = grid_dims[0]
@@ -191,6 +191,7 @@ def parse_tuple(s: Union[str, Tuple[int,int]]) -> Tuple[int, int]:
 @click.option('--num-keyframes', type=int, help='Number of seeds to interpolate through.  If not specified, determine based on the length of the seeds array given by --seeds.', default=None)
 @click.option('--w-frames', type=int, help='Number of frames to interpolate between latents', default=120)
 @click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
+@click.option('--stabilize-video', is_flag=True, help='Stabilize the video by anchoring the mapping to w_avg')
 @click.option('--output', help='Output .mp4 filename', type=str, required=True, metavar='FILE')
 def generate_images(
     network_pkl: str,
@@ -199,6 +200,7 @@ def generate_images(
     truncation_psi: float,
     grid: Tuple[int,int],
     num_keyframes: Optional[int],
+    stabilize_video: bool,
     w_frames: int,
     output: str
 ):
@@ -229,7 +231,8 @@ def generate_images(
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device) # type: ignore
 
-    gen_interp_video(G=G, mp4=output, bitrate='12M', grid_dims=grid, num_keyframes=num_keyframes, w_frames=w_frames, seeds=seeds, shuffle_seed=shuffle_seed, psi=truncation_psi)
+    gen_interp_video(G=G, mp4=output, bitrate='12M', grid_dims=grid, num_keyframes=num_keyframes, w_frames=w_frames,
+                     seeds=seeds, shuffle_seed=shuffle_seed, psi=truncation_psi, stabilize_video=stabilize_video)
 
 
 # ----------------------------------------------------------------------------
