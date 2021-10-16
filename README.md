@@ -153,7 +153,7 @@ python dataset_tool.py --source=/tmp/images1024x1024 --dest=~/datasets/ffhq-1024
 
 # Scaled down 256x256 resolution.
 python dataset_tool.py --source=/tmp/images1024x1024 --dest=~/datasets/ffhq-256x256.zip \
-    --width=256 --height=256
+    --resolution=256x256
 ```
 
 See the [FFHQ README](https://github.com/NVlabs/ffhq-dataset) for information on how to obtain the unaligned FFHQ dataset images. Use the same steps as above to create a ZIP archive for training and validation.
