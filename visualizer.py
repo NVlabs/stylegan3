@@ -132,7 +132,7 @@ class Visualizer(imgui_window.ImguiWindow):
         expanded, _visible = imgui_utils.collapsing_header('Layers & channels', default=True)
         self.layer_widget(expanded)
         with imgui_utils.grayed_out(not self.result.get('has_input_transform', False)):
-            expanded, _visible = imgui_utils.collapsing_header('Equivariance', default=True)
+            expanded, _visible = imgui_utils.collapsing_header('Affine Transformation', default=True)
             self.eq_widget(expanded)
 
         # Render.
