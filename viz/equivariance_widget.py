@@ -10,6 +10,7 @@ import numpy as np
 import imgui
 import dnnlib
 from gui_utils import imgui_utils
+from torch_utils import gen_utils
 
 #----------------------------------------------------------------------------
 
@@ -199,34 +200,16 @@ class EquivarianceWidget:
         if self.shear.round and 'img_resolution' in viz.result:
             shear = np.rint(shear * viz.result.img_resolution) / viz.result.img_resolution
 
-        # Build the respective matrices and then do a matrix multiply to get the resulting affine transform
-        # Remember these are the inverse transformations!
-        # Rotation
-        m_rot = np.array([[np.cos(angle), np.sin(angle), 0.0],
-                          [-np.sin(angle), np.cos(angle), 0.0],
-                          [0.0, 0.0, 1.0]], dtype=np.float64)
-        # Translation
-        m_trx = np.array([[1.0, 0.0, -pos[0]],
-                          [0.0, 1.0, -pos[1]],
-                          [0.0, 0.0, 1.0]], dtype=np.float64)
-        # Scale (don't let it go into negative or 0)
-        m_scl = np.array([[1./max(scale[0], 1e-4), 0.0, 0.0],
-                          [0.0, 1./max(scale[1], 1e-4), 0.0],
-                          [0.0, 0.0, 1.0]], dtype=np.float64)
-        # Shear
-        m_shr = np.array([[1.0, -shear[0], 0.0],
-                          [-shear[1], 1.0, 0.0],
-                          [0.0, 0.0, 1.0]], dtype=np.float64)
-        # Mirror/reflection in x
-        m_rfx = np.array([[1-2*self.opts.mirror_x, 0.0, 0.0],
-                          [0.0, 1.0, 0.0],
-                          [0.0, 0.0, 1.0]], dtype=np.float64)
-        # Mirror/reflection in y
-        m_rfy = np.array([[1.0, 0.0, 0.0],
-                          [0.0, 1-2*self.opts.mirror_y, 0.0],
-                          [0.0, 0.0, 1.0]], dtype=np.float64)
-        # These transformations are non-commutative, so I choose to do them in the following order
-        transform = m_rot @ m_trx @ m_scl @ m_shr @ m_rfx @ m_rfy
+        # Get the respective affine transform
+        transform = gen_utils.make_affine_transform(angle=angle,                    # In terms of rev (1 rev = 2*pi rad)
+                                                    translate_x=pos[0],             # In terms of G.img_resolution
+                                                    translate_y=pos[1],             # In terms of G.img_resolution
+                                                    scale_x=scale[0],               # If 0 < scale < 1, will zoom in
+                                                    scale_y=scale[1],               # If 0 < scale < 1, will zoom in
+                                                    shear_x=shear[0],               # Think of it as the slope of the vertical edges; best viewed if unstransform is ticked
+                                                    shear_y=shear[1],               # Think of it as the slope of the horizontal edges; best viewed if unstransform is ticked
+                                                    mirror_x=self.opts.mirror_x,
+                                                    mirror_y=self.opts.mirror_y)
 
         viz.args.input_transform = transform.tolist()  # A list is expected
 

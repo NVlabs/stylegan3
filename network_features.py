@@ -8,6 +8,9 @@ from typing import List
 from collections import OrderedDict
 
 
+# ----------------------------------------------------------------------------
+
+
 class VGG16Features(torch.nn.Module):
     """
     Use pre-trained VGG16 provided by PyTorch. Code modified from lainwired/pacifinapacific
@@ -164,37 +167,6 @@ class VGG16FeaturesNVIDIA(torch.nn.Module):
             else:
                 result_list.append(eval(layer))
         return result_list
-
-
-# ----------------------------------------------------------------------------
-
-def get_available_layers(max_resolution: int) -> List[str]:
-    """Helper function to get the available layers given a max resolution (first block in the Discriminator)"""
-    max_res_log2 = int(np.log2(max_resolution))
-    block_resolutions = [2**i for i in range(max_res_log2, 2, -1)]
-
-    available_layers = ['from_rgb']
-    for block_res in block_resolutions:
-        # We don't add the skip layer, as it's the same as conv1 (due to in-place addition; could be changed)
-        available_layers.extend([f'b{block_res}_conv0', f'b{block_res}_conv1'])
-    # We also skip 'b4_mbstd', as it doesn't add any new information compared to b8_conv1
-    available_layers.extend(['b4_conv', 'fc', 'out'])
-    return available_layers
-
-
-def parse_layers(s: str) -> List[str]:
-    """Helper function for parsing a string of comma-separated layers and returning a list of the individual layers"""
-    str_list = s.split(',')
-
-    # Get all the possible layers up to resolution 1024
-    all_available_layers = get_available_layers(max_resolution=1024)
-
-    for layer in str_list:
-        message = f'{layer} is not a possible layer! Available layers: {all_available_layers}'
-        # We also let the user choose all the layers
-        assert layer in all_available_layers or layer == 'all', message
-
-    return str_list
 
 
 # ----------------------------------------------------------------------------

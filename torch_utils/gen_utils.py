@@ -268,6 +268,55 @@ def double_slowdown(latents: np.ndarray, duration: float, frames: int) -> Tuple[
 # ----------------------------------------------------------------------------
 
 
+def make_affine_transform(m: np.array = None,
+                          angle: float = 0.0,
+                          translate_x: float = 0.0,
+                          translate_y: float = 0.0,
+                          scale_x: float = 1.0,
+                          scale_y: float = 1.0,
+                          shear_x: float = 0.0,
+                          shear_y: float = 0.0,
+                          mirror_x: bool = False,
+                          mirror_y: bool = False) -> np.array:
+    """Make affine transformation with the given parameters. If none are passed, will return the identity.
+    As a guide for affine transformations: https://en.wikipedia.org/wiki/Affine_transformation"""
+    # m is the starting affine transformation matrix (e.g., G.synthesis.input.transform)
+    if m is None:
+        m = np.eye(3, dtype=np.float64)
+    # Remember these are the inverse transformations!
+    # Rotation matrix
+    rotation_matrix = np.array([[np.cos(angle), np.sin(angle), 0.0],
+                                [-np.sin(angle), np.cos(angle), 0.0],
+                                [0.0, 0.0, 1.0]], dtype=np.float64)
+    # Translation matrix
+    translation_matrix = np.array([[1.0, 0.0, -translate_x],
+                                   [0.0, 1.0, -translate_y],
+                                   [0.0, 0.0, 1.0]], dtype=np.float64)
+    # Scale matrix (don't let it go into negative or 0)
+    scale_matrix = np.array([[1. / max(scale_x, 1e-4), 0.0, 0.0],
+                             [0.0, 1. / max(scale_y, 1e-4), 0.0],
+                             [0.0, 0.0, 1.0]], dtype=np.float64)
+    # Shear matrix
+    shear_matrix = np.array([[1.0, -shear_x, 0.0],
+                             [-shear_y, 1.0, 0.0],
+                             [0.0, 0.0, 1.0]], dtype=np.float64)
+    # Mirror/reflection in x matrix
+    xmirror_matrix = np.array([[1.0 - 2 * mirror_x, 0.0, 0.0],
+                               [0.0, 1.0, 0.0],
+                               [0.0, 0.0, 1.0]], dtype=np.float64)
+    # Mirror/reflection in y matrix
+    ymirror_matrix = np.array([[1.0, 0.0, 0.0],
+                               [0.0, 1.0 - 2 * mirror_y, 0.0],
+                               [0.0, 0.0, 1.0]], dtype=np.float64)
+
+    # Make the resulting affine transformation (note that these are non-commutative, so we *choose* this order)
+    m = m @ rotation_matrix @ translation_matrix @ scale_matrix @ shear_matrix @ xmirror_matrix @ ymirror_matrix
+    return m
+
+
+# ----------------------------------------------------------------------------
+
+
 def z_to_img(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: float, noise_mode: str = 'const') -> np.ndarray:
     """
     Get an image/np.ndarray from a latent Z using G, the label, truncation_psi, and noise_mode. The shape
