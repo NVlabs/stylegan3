@@ -86,8 +86,12 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
         for idx, fname in enumerate(input_images):
             arch_fname = os.path.relpath(fname, source_dir)
             arch_fname = arch_fname.replace('\\', '/')
-            img = np.array(PIL.Image.open(fname))
-            yield dict(img=img, label=labels.get(arch_fname))
+            try:
+                img = np.array(PIL.Image.open(fname))
+            except Exception as e:
+                sys.stderr.write(f'Failed to read {fname}: {e}\n')
+                continue
+            yield dict(img=img, label=labels.get(arch_fname), fname=fname)
             if idx >= max_idx-1:
                 break
     return max_idx, iterate_images()
@@ -409,7 +413,15 @@ def convert_dataset(
         archive_fname = f'{idx_str[:5]}/img{idx_str}.png'
 
         # Apply crop and resize.
-        img = transform_image(image['img'])
+        try:
+            img = transform_image(image['img'])
+        except Exception as e:
+            if "fname" in image:
+                error_msg = f'Failed to process image {image["fname"]}: {e}'
+            else:
+                error_msg = f'Failed to process image at index {idx}: {e}'
+            sys.stderr.write(error_msg + '\n')
+            continue
 
         # Transform may drop images.
         if img is None:
