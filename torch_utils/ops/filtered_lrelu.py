@@ -29,6 +29,7 @@ def _init():
             headers=['filtered_lrelu.h', 'filtered_lrelu.cu'],
             source_dir=os.path.dirname(__file__),
             extra_cuda_cflags=['--use_fast_math'],
+            extra_cflags=['/std:c++17'],
         )
     return True
 
