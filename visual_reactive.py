@@ -31,6 +31,7 @@ from network_features import VGG16FeaturesNVIDIA, DiscriminatorFeatures
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
 import moviepy.editor
 
+
 # ----------------------------------------------------------------------------
 
 
@@ -91,7 +92,9 @@ def get_video_frames(mp4_filename: Union[str, os.PathLike],
     return frames
 
 
-# Here for now, might move to its own file if encoding with the Discriminator results fruitless
+# ----------------------------------------------------------------------------
+
+
 @click.command()
 @click.pass_context
 @click.option('--network', 'network_pkl', help='Network pickle filename', required=True)

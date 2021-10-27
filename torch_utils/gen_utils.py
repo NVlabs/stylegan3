@@ -56,7 +56,8 @@ def create_image_grid(images: np.ndarray, grid_size: Optional[Tuple[int, int]] =
 
 
 def parse_fps(fps: Union[str, int]) -> int:
-    """Return FPS for the video; at worst, video will be 1 FPS, but no lower."""
+    """Return FPS for the video; at worst, video will be 1 FPS, but no lower.
+    Useful if we don't have Click, else simply use Click.IntRange(min=1)"""
     if isinstance(fps, int):
         return max(fps, 1)
     try:
@@ -268,7 +269,7 @@ def double_slowdown(latents: np.ndarray, duration: float, frames: int) -> Tuple[
 # ----------------------------------------------------------------------------
 
 
-def make_affine_transform(m: np.array = None,
+def make_affine_transform(m: torch.Tensor = None,
                           angle: float = 0.0,
                           translate_x: float = 0.0,
                           translate_y: float = 0.0,
@@ -283,6 +284,8 @@ def make_affine_transform(m: np.array = None,
     # m is the starting affine transformation matrix (e.g., G.synthesis.input.transform)
     if m is None:
         m = np.eye(3, dtype=np.float64)
+    else:
+        m = m.cpu().numpy()
     # Remember these are the inverse transformations!
     # Rotation matrix
     rotation_matrix = np.array([[np.cos(angle), np.sin(angle), 0.0],
@@ -314,6 +317,14 @@ def make_affine_transform(m: np.array = None,
     return m
 
 
+def anchor_latent_space(G) -> None:
+    # Thanks to @RiversHaveWings and @nshepperd1
+    if hasattr(G.synthesis, 'input'):
+        shift = G.synthesis.input.affine(G.mapping.w_avg.unsqueeze(0))
+        G.synthesis.input.affine.bias.data.add_(shift.squeeze(0))
+        G.synthesis.input.affine.weight.data.zero_()
+
+
 # ----------------------------------------------------------------------------
 
 
@@ -331,7 +342,7 @@ def z_to_img(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: floa
     return img
 
 
-def w_to_img(G, dlatents: torch.Tensor, noise_mode: str = 'const') -> np.ndarray:
+def w_to_img(G, dlatents: Union[List[torch.Tensor], torch.Tensor], noise_mode: str = 'const') -> np.ndarray:
     """
     Get an image/np.ndarray from a dlatent W using G and the selected noise_mode. The final shape of the
     returned image will be [len(dlatents), G.img_resolution, G.img_resolution, G.img_channels].
