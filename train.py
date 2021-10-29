@@ -22,7 +22,9 @@ from metrics import metric_main
 from torch_utils import training_stats
 from torch_utils import custom_ops
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+
 
 def subprocess_fn(rank, c, temp_dir):
     dnnlib.util.Logger(file_name=os.path.join(c.run_dir, 'log.txt'), file_mode='a', should_flush=True)
@@ -46,7 +48,9 @@ def subprocess_fn(rank, c, temp_dir):
     # Execute training loop.
     training_loop.training_loop(rank=rank, **c)
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+
 
 def launch_training(c, desc, outdir, dry_run):
     dnnlib.util.Logger(should_flush=True)
@@ -75,6 +79,7 @@ def launch_training(c, desc, outdir, dry_run):
     print(f'Dataset resolution:  {c.training_set_kwargs.resolution}')
     print(f'Dataset labels:      {c.training_set_kwargs.use_labels}')
     print(f'Dataset x-flips:     {c.training_set_kwargs.xflip}')
+    print(f'Dataset y-flilps:    {c.training_set_kwargs.yflip}')
     print()
 
     # Dry run?
@@ -97,11 +102,13 @@ def launch_training(c, desc, outdir, dry_run):
         else:
             torch.multiprocessing.spawn(fn=subprocess_fn, args=(c, temp_dir), nprocs=c.num_gpus)
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+
 
 def init_dataset_kwargs(data):
     try:
-        dataset_kwargs = dnnlib.EasyDict(class_name='training.dataset.ImageFolderDataset', path=data, use_labels=True, max_size=None, xflip=False)
+        dataset_kwargs = dnnlib.EasyDict(class_name='training.dataset.ImageFolderDataset', path=data, use_labels=True, max_size=None, xflip=False, yflip=False)
         dataset_obj = dnnlib.util.construct_class_by_name(**dataset_kwargs) # Subclass of training.dataset.Dataset.
         dataset_kwargs.resolution = dataset_obj.resolution # Be explicit about resolution.
         dataset_kwargs.use_labels = dataset_obj.has_labels # Be explicit about labels.
@@ -110,7 +117,9 @@ def init_dataset_kwargs(data):
     except IOError as err:
         raise click.ClickException(f'--data: {err}')
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+
 
 def parse_comma_separated_list(s):
     if isinstance(s, list):
@@ -119,10 +128,11 @@ def parse_comma_separated_list(s):
         return []
     return s.split(',')
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+
 
 @click.command()
-
 # Required.
 @click.option('--outdir',       help='Where to save the results', metavar='DIR',                required=True)
 @click.option('--cfg',          help='Base configuration',                                      type=click.Choice(['stylegan3-t', 'stylegan3-r', 'stylegan2']), required=True)
@@ -130,14 +140,14 @@ def parse_comma_separated_list(s):
 @click.option('--gpus',         help='Number of GPUs to use', metavar='INT',                    type=click.IntRange(min=1), required=True)
 @click.option('--batch',        help='Total batch size', metavar='INT',                         type=click.IntRange(min=1), required=True)
 @click.option('--gamma',        help='R1 regularization weight', metavar='FLOAT',               type=click.FloatRange(min=0), required=True)
-
 # Optional features.
 @click.option('--cond',         help='Train conditional model', metavar='BOOL',                 type=bool, default=False, show_default=True)
 @click.option('--mirror',       help='Enable dataset x-flips', metavar='BOOL',                  type=bool, default=False, show_default=True)
+@click.option('--mirror-y',     help='Enable dataset y-flips', metavar='BOOL',                  type=bool, default=False, show_default=True)
 @click.option('--aug',          help='Augmentation mode',                                       type=click.Choice(['noaug', 'ada', 'fixed']), default='ada', show_default=True)
+@click.option('--augpipe',      help='Augmentation pipeline [default: bgc]',                    type=click.Choice(['blit', 'geom', 'color', 'filter', 'noise', 'cutout', 'bg', 'bgc', 'bgcf', 'bgcfn', 'bgcfnc']))
 @click.option('--resume',       help='Resume from given network pickle', metavar='[PATH|URL]',  type=str)
 @click.option('--freezed',      help='Freeze first layers of D', metavar='INT',                 type=click.IntRange(min=0), default=0, show_default=True)
-
 # Misc hyperparameters.
 @click.option('--p',            help='Probability for --aug=fixed', metavar='FLOAT',            type=click.FloatRange(min=0, max=1), default=0.2, show_default=True)
 @click.option('--target',       help='Target value for --aug=ada', metavar='FLOAT',             type=click.FloatRange(min=0, max=1), default=0.6, show_default=True)
@@ -148,7 +158,6 @@ def parse_comma_separated_list(s):
 @click.option('--dlr',          help='D learning rate', metavar='FLOAT',                        type=click.FloatRange(min=0), default=0.002, show_default=True)
 @click.option('--map-depth',    help='Mapping network depth  [default: varies]', metavar='INT', type=click.IntRange(min=1))
 @click.option('--mbstd-group',  help='Minibatch std group size', metavar='INT',                 type=click.IntRange(min=1), default=4, show_default=True)
-
 # Misc settings.
 @click.option('--desc',         help='String to include in result dir name', metavar='STR',     type=str)
 @click.option('--metrics',      help='Quality metrics', metavar='[NAME|A,B,C|none]',            type=parse_comma_separated_list, default='fid50k_full', show_default=True)
@@ -160,7 +169,6 @@ def parse_comma_separated_list(s):
 @click.option('--nobench',      help='Disable cuDNN benchmarking', metavar='BOOL',              type=bool, default=False, show_default=True)
 @click.option('--workers',      help='DataLoader worker processes', metavar='INT',              type=click.IntRange(min=1), default=3, show_default=True)
 @click.option('-n','--dry-run', help='Print training options and exit',                         is_flag=True)
-
 def main(**kwargs):
     """Train a GAN using the techniques described in the paper
     "Alias-Free Generative Adversarial Networks".
@@ -200,6 +208,7 @@ def main(**kwargs):
         raise click.ClickException('--cond=True requires labels specified in dataset.json')
     c.training_set_kwargs.use_labels = opts.cond
     c.training_set_kwargs.xflip = opts.mirror
+    c.training_set_kwargs.yflip = opts.mirror_y
 
     # Hyperparameters & settings.
     c.num_gpus = opts.gpus
@@ -251,8 +260,22 @@ def main(**kwargs):
             c.loss_kwargs.blur_fade_kimg = c.batch_size * 200 / 32 # Fade out the blur during the first N kimg.
 
     # Augmentation.
+    augpipe_specs = {
+        'blit': dict(xflip=1, rotate90=1, xint=1),
+        'geom': dict(scale=1, rotate=1, aniso=1, xfrac=1),
+        'color': dict(brightness=1, contrast=1, lumaflip=1, hue=1, saturation=1),
+        'filter': dict(imgfilter=1),
+        'noise': dict(noise=1),
+        'cutout': dict(cutout=1),
+        'bg': dict(xflip=1, rotate90=1, xint=1, scale=1, rotate=1, aniso=1, xfrac=1),
+        'bgc': dict(xflip=1, rotate90=1, xint=1, scale=1, rotate=1, aniso=1, xfrac=1, brightness=1, contrast=1, lumaflip=1, hue=1, saturation=1),
+        'bgcf': dict(xflip=1, rotate90=1, xint=1, scale=1, rotate=1, aniso=1, xfrac=1, brightness=1, contrast=1, lumaflip=1, hue=1, saturation=1, imgfilter=1),
+        'bgcfn': dict(xflip=1, rotate90=1, xint=1, scale=1, rotate=1, aniso=1, xfrac=1, brightness=1, contrast=1, lumaflip=1, hue=1, saturation=1, imgfilter=1, noise=1),
+        'bgcfnc': dict(xflip=1, rotate90=1, xint=1, scale=1, rotate=1, aniso=1, xfrac=1, brightness=1, contrast=1, lumaflip=1, hue=1, saturation=1, imgfilter=1, noise=1, cutout=1)
+    }
+
     if opts.aug != 'noaug':
-        c.augment_kwargs = dnnlib.EasyDict(class_name='training.augment.AugmentPipe', xflip=1, rotate90=1, xint=1, scale=1, rotate=1, aniso=1, xfrac=1, brightness=1, contrast=1, lumaflip=1, hue=1, saturation=1)
+        c.augment_kwargs = dnnlib.EasyDict(class_name='training.augment.AugmentPipe', **augpipe_specs[opts.augpipe])
         if opts.aug == 'ada':
             c.ada_target = opts.target
         if opts.aug == 'fixed':
@@ -280,9 +303,12 @@ def main(**kwargs):
     # Launch.
     launch_training(c=c, desc=desc, outdir=opts.outdir, dry_run=opts.dry_run)
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+
 
 if __name__ == "__main__":
-    main() # pylint: disable=no-value-for-parameter
+    main()  # pylint: disable=no-value-for-parameter
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
