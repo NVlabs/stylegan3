@@ -28,10 +28,11 @@ from metrics import metric_main
 
 #----------------------------------------------------------------------------
 
-def setup_snapshot_image_grid(training_set, random_seed=0):
+def setup_snapshot_image_grid(training_set,  snap_res='8k', random_seed=0):
+    size_dict = {'1080p': (1920, 1080, 3, 2), '4k': (3840, 2160, 7, 4), '8k': (7680, 4320, 7, 4)}
     rnd = np.random.RandomState(random_seed)
-    gw = np.clip(7680 // training_set.image_shape[2], 7, 32)
-    gh = np.clip(4320 // training_set.image_shape[1], 4, 32)
+    gw = np.clip(size_dict[snap_res][0] // training_set.image_shape[1], size_dict[snap_res][2], 32)
+    gh = np.clip(size_dict[snap_res][1] // training_set.image_shape[1], size_dict[snap_res][3], 32)
 
     # No labels => show random subset of training samples.
     if not training_set.has_labels:
@@ -115,6 +116,7 @@ def training_loop(
     kimg_per_tick           = 4,        # Progress snapshot interval.
     image_snapshot_ticks    = 50,       # How often to save image snapshots? None = disable.
     network_snapshot_ticks  = 50,       # How often to save network snapshots? None = disable.
+    snap_res                = '8k',     # Resolution size of the snapshot grid. Choose between [1080p | 4k | 8k]
     resume_pkl              = None,     # Network pickle to resume training from.
     resume_kimg             = 0,        # First kimg to report when resuming training.
     cudnn_benchmark         = True,     # Enable torch.backends.cudnn.benchmark?
@@ -217,7 +219,7 @@ def training_loop(
     grid_c = None
     if rank == 0:
         print('Exporting sample images...')
-        grid_size, images, labels = setup_snapshot_image_grid(training_set=training_set)
+        grid_size, images, labels = setup_snapshot_image_grid(training_set=training_set, snap_res=snap_res)
         save_image_grid(images, os.path.join(run_dir, 'reals.png'), drange=[0,255], grid_size=grid_size)
         grid_z = torch.randn([labels.shape[0], G.z_dim], device=device).split(batch_gpu)
         grid_c = torch.from_numpy(labels).to(device).split(batch_gpu)

@@ -79,7 +79,7 @@ def launch_training(c, desc, outdir, dry_run):
     print(f'Dataset resolution:  {c.training_set_kwargs.resolution}')
     print(f'Dataset labels:      {c.training_set_kwargs.use_labels}')
     print(f'Dataset x-flips:     {c.training_set_kwargs.xflip}')
-    print(f'Dataset y-flilps:    {c.training_set_kwargs.yflip}')
+    print(f'Dataset y-flips:     {c.training_set_kwargs.yflip}')
     print()
 
     # Dry run?
@@ -134,12 +134,10 @@ def parse_comma_separated_list(s):
 
 @click.command()
 # Required.
-@click.option('--outdir',       help='Where to save the results', metavar='DIR',                required=True)
 @click.option('--cfg',          help='Base configuration',                                      type=click.Choice(['stylegan3-t', 'stylegan3-r', 'stylegan2']), required=True)
-@click.option('--data',         help='Training data', metavar='[ZIP|DIR]',                      type=str, required=True)
+@click.option('--data',         help='Training data', metavar='[ZIP|DIR]',                      type=click.Path(exists=True, dir_okay=False), required=True)
 @click.option('--gpus',         help='Number of GPUs to use', metavar='INT',                    type=click.IntRange(min=1), required=True)
 @click.option('--batch',        help='Total batch size', metavar='INT',                         type=click.IntRange(min=1), required=True)
-@click.option('--gamma',        help='R1 regularization weight', metavar='FLOAT',               type=click.FloatRange(min=0), required=True)
 # Optional features.
 @click.option('--cond',         help='Train conditional model', metavar='BOOL',                 type=bool, default=False, show_default=True)
 @click.option('--mirror',       help='Enable dataset x-flips', metavar='BOOL',                  type=bool, default=False, show_default=True)
@@ -149,6 +147,7 @@ def parse_comma_separated_list(s):
 @click.option('--resume',       help='Resume from given network pickle', metavar='[PATH|URL]',  type=str)
 @click.option('--freezed',      help='Freeze first layers of D', metavar='INT',                 type=click.IntRange(min=0), default=0, show_default=True)
 # Misc hyperparameters.
+@click.option('--gamma',        help='R1 regularization weight', metavar='FLOAT',               type=click.FloatRange(min=0), default=None)
 @click.option('--p',            help='Probability for --aug=fixed', metavar='FLOAT',            type=click.FloatRange(min=0, max=1), default=0.2, show_default=True)
 @click.option('--target',       help='Target value for --aug=ada', metavar='FLOAT',             type=click.FloatRange(min=0, max=1), default=0.6, show_default=True)
 @click.option('--batch-gpu',    help='Limit batch size per GPU', metavar='INT',                 type=click.IntRange(min=1))
@@ -159,11 +158,14 @@ def parse_comma_separated_list(s):
 @click.option('--map-depth',    help='Mapping network depth  [default: varies]', metavar='INT', type=click.IntRange(min=1))
 @click.option('--mbstd-group',  help='Minibatch std group size', metavar='INT',                 type=click.IntRange(min=1), default=4, show_default=True)
 # Misc settings.
+@click.option('--outdir',       help='Where to save the results', metavar='DIR',                type=click.Path(file_okay=False), default=os.path.join(os.getcwd(), 'training_runs'))
 @click.option('--desc',         help='String to include in result dir name', metavar='STR',     type=str)
 @click.option('--metrics',      help='Quality metrics', metavar='[NAME|A,B,C|none]',            type=parse_comma_separated_list, default='fid50k_full', show_default=True)
 @click.option('--kimg',         help='Total training duration', metavar='KIMG',                 type=click.IntRange(min=1), default=25000, show_default=True)
 @click.option('--tick',         help='How often to print progress', metavar='KIMG',             type=click.IntRange(min=1), default=4, show_default=True)
-@click.option('--snap',         help='How often to save snapshots', metavar='TICKS',            type=click.IntRange(min=1), default=50, show_default=True)
+@click.option('--snap',         help='How often to save model snapshots', metavar='TICKS',      type=click.IntRange(min=1), default=50, show_default=True)
+@click.option('--img-snap',     help='How often to save image snapshots', metavar='INT',        type=click.IntRange(min=1), default=50, show_default=True)
+@click.option('--snap-res',     help='Screen resolution to save image snapshot',                type=click.Choice(['1080p', '4k', '8k']), default='4k', show_default=True)
 @click.option('--seed',         help='Random seed', metavar='INT',                              type=click.IntRange(min=0), default=0, show_default=True)
 @click.option('--fp32',         help='Disable mixed-precision', metavar='BOOL',                 type=bool, default=False, show_default=True)
 @click.option('--nobench',      help='Disable cuDNN benchmarking', metavar='BOOL',              type=bool, default=False, show_default=True)
@@ -219,13 +221,20 @@ def main(**kwargs):
     c.G_kwargs.mapping_kwargs.num_layers = (8 if opts.cfg == 'stylegan2' else 2) if opts.map_depth is None else opts.map_depth
     c.D_kwargs.block_kwargs.freeze_layers = opts.freezed
     c.D_kwargs.epilogue_kwargs.mbstd_group_size = opts.mbstd_group
-    c.loss_kwargs.r1_gamma = opts.gamma
+    if opts.gamma is not None:
+        c.loss_kwargs.r1_gamma = float(opts.gamma)
+    else:
+        # Use heuristic from StyleGAN2-ADA
+        c.loss_kwargs.r1_gamma = 0.0002 * c.training_set_kwargs.resolution ** 2 / c.batch_size
+        print(f'Using heuristic, r1 gamma set at: {c.loss_kwargs.r1_gamma:.4f}')
     c.G_opt_kwargs.lr = (0.002 if opts.cfg == 'stylegan2' else 0.0025) if opts.glr is None else opts.glr
     c.D_opt_kwargs.lr = opts.dlr
     c.metrics = opts.metrics
     c.total_kimg = opts.kimg
     c.kimg_per_tick = opts.tick
-    c.image_snapshot_ticks = c.network_snapshot_ticks = opts.snap
+    c.network_snapshot_ticks = opts.snap
+    c.image_snapshot_ticks = opts.img_snap
+    c.snap_res = opts.snap_res
     c.random_seed = c.training_set_kwargs.random_seed = opts.seed
     c.data_loader_kwargs.num_workers = opts.workers
 
@@ -299,19 +308,32 @@ def main(**kwargs):
         'sgan2-brecahad512': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-brecahad-512x512.pkl',
         'sgan2-cifar10':     'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-cifar10-32x32.pkl',
         'sgan2-metfaces':    'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfaces-1024x1024.pkl',
-        'sgan2-metfacesu':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfacesu-1024x1024.pkl'
-        # For StyleGAN3 models; --cfg=stylegan3-t or --cfg=stylegan3-r  TODO: finish this list
+        'sgan2-metfacesu':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfacesu-1024x1024.pkl',
+        # For StyleGAN3 models, with --cfg=stylegan3-r
+        'sgan3-r-afhq512':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-afhqv2-512x512.pkl',
+        'sgan3-r-ffhq1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhq-1024x1024.pkl',
+        'sgan3-r-ffhqu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhqu-1024x1024.pkl',
+        'sgan3-r-ffhq256':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhqu-256x256.pkl',
+        'sgan3-r-metfaces':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-metfaces-1024x1024.pkl',
+        'sgan3-r-metfacesu': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-metfacesu-1024x1024.pkl',
+        # For StyleGAN3 models, with --cfg=stylegan3-t
+        'sgan3-t-afhq512':   'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-afhqv2-512x512.pkl',
+        'sgan3-t-ffhq1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhq-1024x1024.pkl',
+        'sgan3-t-ffhqu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhqu-1024x1024.pkl',
+        'sgan3-t-ffhqu256':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-ffhqu-256x256.pkl',
+        'sgan3-t-metfaces':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-metfaces-1024x1024.pkl',
+        'sgan3-t-metfacesu': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-t-metfacesu-1024x1024.pkl'
 
     }
     if opts.resume is None:
-        resume_desc = 'noresume'
+        resume_desc = 'no_resume'
     else:
         if opts.resume in resume_specs:
             c.resume_pkl = resume_specs[opts.resume]
-            resume_desc = f'resume{opts.resume}'
+            resume_desc = f'resume_{opts.resume}'
         else:  # A local file
             c.resume_pkl = opts.resume
-            resume_desc = f'resumecustom'
+            resume_desc = f'resume_custom'
         c.ada_kimg = 100 # Make ADA react faster at the beginning.
         c.ema_rampup = None # Disable EMA rampup.
         c.loss_kwargs.blur_init_sigma = 0 # Disable blur rampup.
