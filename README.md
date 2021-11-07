@@ -1,3 +1,37 @@
+# StyleGAN3-Fun<br><sub>Let's have fun with StyleGAN2/ADA/3!</sub>
+
+SOTA GANs are hard to train and to explore, and StyleGAN2/ADA/3 are no different. The point of this repository is to allow
+the user to both easily train and explore the trained models without unnecessary headaches. 
+
+As [before](https://github.com/PDillis/stylegan2-fun), we will build upon the official repository, which has the advantage
+of being backwards-compatible. As such, we can use our previously-trained models from StyleGAN2 and StyleGAN2-ADA. Please
+get acquainted with the official repository and its codebase, as we will be building upon it and as such, increase its
+capabilities (but hopefully not its complexity!). 
+
+This repository adds the following (not yet the complete list):
+
+* Interpolation videos
+    * [Random interpolation](https://youtu.be/DNfocO1IOUE)
+    * Style-mixing
+    * Sightseeding
+    * [Circular interpolation](https://youtu.be/4nktYGjSVHg)
+    * [Visual-reactive interpolation](https://youtu.be/KoEAkPnE-zA) (Beta)
+* Projection into the latent space
+    * [Project into W+](https://arxiv.org/abs/1904.03189)
+    * Additional losses to use for better projection (e.g., using VGG16 or [CLIP](https://github.com/openai/CLIP))
+* [Discriminator Synthesis](https://arxiv.org/abs/2111.02175) (official code)
+    * Generate a static image or a [video](https://youtu.be/hEJKWL2VQTE) with a feedback loop
+* Expansion on GUI/`visualizer.py`
+    * Added the rest of the affine transformations
+* General model and code additions
+    * No longer necessary to specify `--outdir` when running the code, as the output directory will be automatically generated
+    * [Better sampling?](https://arxiv.org/abs/2110.08009) (TODO)
+    * StyleGAN3: anchor the latent space for easier to follow interpolations
+
+***TODO:*** Finish documentation for better user experience, add videos/images, code samples.
+
+---
+
 ## Alias-Free Generative Adversarial Networks (StyleGAN3)<br><sub>Official PyTorch implementation of the NeurIPS 2021 paper</sub>
 
 ![Teaser image](./docs/stylegan3-teaser-1920x1006.png)

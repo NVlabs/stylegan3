@@ -325,6 +325,14 @@ def anchor_latent_space(G) -> None:
         G.synthesis.input.affine.weight.data.zero_()
 
 
+def force_fp32(G) -> None:
+    """Force fp32 as in during training"""
+    G.synthesis.num_fp16_res = 0
+    for name, layer in G.synthesis.named_modules():
+        if hasattr(layer, 'conv_clamp'):
+            layer.conv_clamp = None
+            layer.use_fp16 = False
+
 # ----------------------------------------------------------------------------
 
 
