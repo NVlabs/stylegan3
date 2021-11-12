@@ -162,6 +162,7 @@ def parse_comma_separated_list(s):
 @click.option('--desc',         help='String to include in result dir name', metavar='STR',     type=str)
 @click.option('--metrics',      help='Quality metrics', metavar='[NAME|A,B,C|none]',            type=parse_comma_separated_list, default='none', show_default=True)
 @click.option('--kimg',         help='Total training duration', metavar='KIMG',                 type=click.IntRange(min=1), default=25000, show_default=True)
+@click.option('--resume-kimg',  help='Number of kimg images to resume from', metavar='RKIMG',   type=click.IntRange(min=0), default=0, show_default=True)
 @click.option('--tick',         help='How often to print progress', metavar='KIMG',             type=click.IntRange(min=1), default=4, show_default=True)
 @click.option('--snap',         help='How often to save model snapshots', metavar='TICKS',      type=click.IntRange(min=1), default=50, show_default=True)
 @click.option('--img-snap',     help='How often to save image snapshots', metavar='INT',        type=click.IntRange(min=1), default=50, show_default=True)
@@ -226,11 +227,12 @@ def main(**kwargs):
     else:
         # Use heuristic from StyleGAN2-ADA
         c.loss_kwargs.r1_gamma = 0.0002 * c.training_set_kwargs.resolution ** 2 / c.batch_size
-        print(f'Using heuristic, r1 gamma set at: {c.loss_kwargs.r1_gamma:.4f}')
+        print(f'Using heuristic, R1 gamma set at: {c.loss_kwargs.r1_gamma:.4f}')
     c.G_opt_kwargs.lr = (0.002 if opts.cfg == 'stylegan2' else 0.0025) if opts.glr is None else opts.glr
     c.D_opt_kwargs.lr = opts.dlr
     c.metrics = opts.metrics
     c.total_kimg = opts.kimg
+    c.resume_kimg = opts.resume_kimg
     c.kimg_per_tick = opts.tick
     c.network_snapshot_ticks = opts.snap
     c.image_snapshot_ticks = opts.img_snap
