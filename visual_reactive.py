@@ -115,7 +115,7 @@ def get_video_frames(mp4_filename: Union[str, os.PathLike],
 # Video options
 @click.option('--compress', is_flag=True, help='Add flag to compress the final mp4 file with ffmpeg-python (same resolution, lower file size)')
 # Extra parameters for saving the results
-@click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out'), show_default=True, metavar='DIR')
+@click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out','visual-reactive'), show_default=True, metavar='DIR')
 @click.option('--description', '-desc', type=str, help='Description name for the directory path to save results', default='', show_default=True)
 def visual_reactive_interpolation(
         ctx: click.Context,
