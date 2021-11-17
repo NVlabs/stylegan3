@@ -27,6 +27,13 @@ This repository adds the following (not yet the complete list):
     * No longer necessary to specify `--outdir` when running the code, as the output directory will be automatically generated
     * [Better sampling?](https://arxiv.org/abs/2110.08009) (TODO)
     * StyleGAN3: anchor the latent space for easier to follow interpolations
+* Dataset tool
+  * Add `--center-crop-tall`: add vertical black bars to the sides instead, in the same vein as the horizontal bars in
+    `--center-crop-wide`.
+  * Grayscale images in the dataset are converted to `RGB`.
+  * If the dataset tool encounters an error, print it along the offending image, but continue with the rest of the dataset 
+    ([pull #39](https://github.com/NVlabs/stylegan3/pull/39) from [Andreas Jansson](https://github.com/andreasjansson)). 
+  * *TODO*: Add multi-crop, as used in [Earth View](https://github.com/PDillis/earthview#multi-crop---data_augmentpy).
 
 ***TODO:*** Finish documentation for better user experience, add videos/images, code samples.
 
