@@ -238,6 +238,7 @@ def interpolate(
     if smooth:
         # Smooth out the interpolation with a polynomial of order 3 (cubic function f)
         # Constructed f by setting f'(0) = f'(1) = 0, and f(0) = 0, f(1) = 1 => f(t) = -2t^3+3t^2 = t^2 (3-2t)
+        # NOTE: I've merely rediscovered the Smoothstep function S_1(x): https://en.wikipedia.org/wiki/Smoothstep
         t_array = t_array ** 2 * (3 - 2 * t_array)  # One line thanks to NumPy arrays
     # TODO: this might be possible to optimize by using the fact they're numpy arrays, but haven't found a nice way yet
     funcs_dict = {'linear': lerp, 'spherical': slerp}

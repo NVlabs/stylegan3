@@ -10,6 +10,24 @@ capabilities (but hopefully not its complexity!).
 
 This repository adds the following (not yet the complete list):
 
+* Dataset tool
+  * Add `--center-crop-tall`: add vertical black bars to the sides instead, in the same vein as the horizontal bars in
+    `--center-crop-wide`.
+  * Grayscale images in the dataset are converted to `RGB`.
+  * If the dataset tool encounters an error, print it along the offending image, but continue with the rest of the dataset 
+    ([pull #39](https://github.com/NVlabs/stylegan3/pull/39) from [Andreas Jansson](https://github.com/andreasjansson)). 
+  * *TODO*: Add multi-crop, as used in [Earth View](https://github.com/PDillis/earthview#multi-crop---data_augmentpy).
+* Training
+  * `--mirrory`: Added vertical mirroring for doubling the dataset size
+  * `--gamma`: If no R1 regularization is provided, the heuristic formula will be used from [StyleGAN2](https://github.com/NVlabs/stylegan2).
+  * `--augpipe`: Now available to use is [StyleGAN2-ADA's](https://github.com/NVlabs/stylegan2-ada-pytorch) full list of augpipe, e,g., `blit`, `geom`, `bgc`, `bgcfnc`, etc.
+  * `--img-snap`: When to save snapshot images, so now it's independent of when the model is saved;
+  * `--snap-res`: The resolution of the snapshots, depending on your screen resolution, or how many images you wish to see per tick. Available resolutions: `1080p`, `4k`, and `8k`.
+  * `--resume-kimg`: Starting number of `kimg`, useful when continuing training a previous run
+  * `--outdir`: Automatically set as `training-runs`
+  * `--metrics`: Now set by default to `None`, so there's no need to worry about this one
+  * `--resume`: All available pre-trained models from NVIDIA can be found with a simple dictionary, depending on the `--cfg` used.
+  For example, if `--cfg=stylegan3-r`, then to transfer learn from FFHQU at 1024 resolution, set `--resume=ffhqu1024`. Full list available [here](https://github.com/PDillis/stylegan3-fun/blob/0bfa8e108487b50d6ecb73718c60497f063d8c17/train.py#L297).
 * Interpolation videos
     * [Random interpolation](https://youtu.be/DNfocO1IOUE)
     * Style-mixing
@@ -21,19 +39,13 @@ This repository adds the following (not yet the complete list):
     * Additional losses to use for better projection (e.g., using VGG16 or [CLIP](https://github.com/openai/CLIP))
 * [Discriminator Synthesis](https://arxiv.org/abs/2111.02175) (official code)
     * Generate a static image or a [video](https://youtu.be/hEJKWL2VQTE) with a feedback loop
+    * Start from a random image (`random` or `perlin`, using [Mathieu Duchesneau's implementation](https://github.com/duchesneaumathieu/pyperlin)) or from an existing one
 * Expansion on GUI/`visualizer.py`
     * Added the rest of the affine transformations
 * General model and code additions
     * No longer necessary to specify `--outdir` when running the code, as the output directory will be automatically generated
     * [Better sampling?](https://arxiv.org/abs/2110.08009) (TODO)
     * StyleGAN3: anchor the latent space for easier to follow interpolations
-* Dataset tool
-  * Add `--center-crop-tall`: add vertical black bars to the sides instead, in the same vein as the horizontal bars in
-    `--center-crop-wide`.
-  * Grayscale images in the dataset are converted to `RGB`.
-  * If the dataset tool encounters an error, print it along the offending image, but continue with the rest of the dataset 
-    ([pull #39](https://github.com/NVlabs/stylegan3/pull/39) from [Andreas Jansson](https://github.com/andreasjansson)). 
-  * *TODO*: Add multi-crop, as used in [Earth View](https://github.com/PDillis/earthview#multi-crop---data_augmentpy).
 
 ***TODO:*** Finish documentation for better user experience, add videos/images, code samples.
 
