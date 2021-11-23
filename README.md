@@ -32,14 +32,14 @@ This repository adds the following (not yet the complete list):
 <table>
   <tr>
     <td>Available Models</td>
-    <td><xmp>ffhq256</xmp></td>
-    <td><xmp>ffhqu256</xmp></td>
-    <td><xmp>ffhq512</xmp></td>
-    <td><xmp>ffhq1024</xmp></td>
-    <td><xmp>ffhqu1024</xmp></td>
+    <td><pre>ffhq256</pre></td>
+    <td><pre>ffhqu256</pre></td>
+    <td><pre>ffhq512</pre></td>
+    <td><pre>ffhq1024</pre></td>
+    <td><pre>ffhqu1024</pre></td>
   </tr>
   <tr>
-    <td><xmp>stylegan2</xmp></td>
+    <td><pre>stylegan2</pre></td>
     <td>:heavy_check_mark:</td>
     <td>:heavy_check_mark:</td>
     <td>:heavy_check_mark:</td>
@@ -47,7 +47,7 @@ This repository adds the following (not yet the complete list):
     <td>:heavy_check_mark:</td>
   </tr>
   <tr>
-    <td><xmp>stylegan3-t</xmp></td>
+    <td><pre>stylegan3-t</pre></td>
     <td></td>
     <td>:heavy_check_mark:</td>
     <td></td>
@@ -55,7 +55,7 @@ This repository adds the following (not yet the complete list):
     <td>:heavy_check_mark:</td>
   </tr>
   <tr>
-    <td><xmp>stylegan3-r</xmp></td>
+    <td><pre>stylegan3-r</pre></td>
     <td></td>
     <td>:heavy_check_mark:</td>
     <td></td>
