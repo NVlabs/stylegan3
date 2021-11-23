@@ -27,7 +27,43 @@ This repository adds the following (not yet the complete list):
   * `--outdir`: Automatically set as `training-runs`
   * `--metrics`: Now set by default to `None`, so there's no need to worry about this one
   * `--resume`: All available pre-trained models from NVIDIA can be found with a simple dictionary, depending on the `--cfg` used.
-  For example, if `--cfg=stylegan3-r`, then to transfer learn from FFHQU at 1024 resolution, set `--resume=ffhqu1024`. Full list available [here](https://github.com/PDillis/stylegan3-fun/blob/0bfa8e108487b50d6ecb73718c60497f063d8c17/train.py#L297).
+  For example, if `--cfg=stylegan3-r`, then to transfer learn from FFHQU at 1024 resolution, set `--resume=ffhqu1024`. 
+  ***TODO***: finish the following table, but full list available [here](https://github.com/PDillis/stylegan3-fun/blob/0bfa8e108487b50d6ecb73718c60497f063d8c17/train.py#L297).
+<table>
+  <tr>
+    <td>Available Models</td>
+    <td><xmp>ffhq256</xmp></td>
+    <td><xmp>ffhqu256</xmp></td>
+    <td><xmp>ffhq512</xmp></td>
+    <td><xmp>ffhq1024</xmp></td>
+    <td><xmp>ffhqu1024</xmp></td>
+  </tr>
+  <tr>
+    <td><xmp>stylegan2</xmp></td>
+    <td>:heavy_check_mark:</td>
+    <td>:heavy_check_mark:</td>
+    <td>:heavy_check_mark:</td>
+    <td>:heavy_check_mark:</td>
+    <td>:heavy_check_mark:</td>
+  </tr>
+  <tr>
+    <td><xmp>stylegan3-t</xmp></td>
+    <td></td>
+    <td>:heavy_check_mark:</td>
+    <td></td>
+    <td>:heavy_check_mark:</td>
+    <td>:heavy_check_mark:</td>
+  </tr>
+  <tr>
+    <td><xmp>stylegan3-r</xmp></td>
+    <td></td>
+    <td>:heavy_check_mark:</td>
+    <td></td>
+    <td>:heavy_check_mark:</td>
+    <td>:heavy_check_mark:</td>
+  </tr>
+</table>
+
 * Interpolation videos
     * [Random interpolation](https://youtu.be/DNfocO1IOUE)
     * Style-mixing
