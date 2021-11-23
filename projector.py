@@ -21,6 +21,7 @@ from pytorch_ssim import SSIM  # from https://github.com/Po-Hsun-Su/pytorch-ssim
 
 from network_features import VGG16FeaturesNVIDIA, DiscriminatorFeatures
 
+from metrics import metric_utils
 
 # ----------------------------------------------------------------------------
 
@@ -94,9 +95,8 @@ def project(
 
     if loss_paper in ['sgan2', 'im2sgan']:
         # Load the VGG16 feature detector.
-        url = 'https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/vgg16.pt'
-        with dnnlib.util.open_url(url) as f:
-            vgg16 = torch.jit.load(f).eval().to(device)
+        url = 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/metrics/vgg16.pkl'
+        vgg16 = metric_utils.get_feature_detector(url, device=device)
 
     # Define the target features and possible new losses
     if loss_paper == 'sgan2':
