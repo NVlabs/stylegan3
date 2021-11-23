@@ -29,6 +29,9 @@ def _init():
             headers=['filtered_lrelu.h', 'filtered_lrelu.cu'],
             source_dir=os.path.dirname(__file__),
             extra_cuda_cflags=['--use_fast_math'],
+            # Bob Burrough's PR (#45) so that the plugins work in Windows: https://github.com/NVlabs/stylegan3/pull/45
+            # No issues found in Ubuntu 20.04, so I add it here as well.
+            extra_cflags=['/std:c++17'],
         )
     return True
 

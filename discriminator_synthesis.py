@@ -389,7 +389,7 @@ def discriminator_dream(
 @click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
 # Synthesis options
 @click.option('--seed', type=int, help='Random seed to use', default=0, show_default=True)
-@click.option('--random-image-noise', 'image_noise', type=click.Choice(['random', 'perlin']), default='random', show_default=True)
+@click.option('--random-image-noise', '-noise', 'image_noise', type=click.Choice(['random', 'perlin']), default='random', show_default=True)
 @click.option('--starting-image', type=str, help='Path to image to start from', default=None)
 @click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)', default=None)
 @click.option('--lr', 'learning_rate', type=float, help='Learning rate', default=5e-3, show_default=True)
@@ -403,7 +403,7 @@ def discriminator_dream(
 @click.option('--octave-scale', type=float, help='Image scale between octaves', default=1.4, show_default=True)
 @click.option('--unzoom-octave', type=bool, help='Set to True for the octaves to be unzoomed (this will be slower)', default=False, show_default=True)
 # Individual frame manipulation options
-@click.option('--pixel-zoom', type=int, help='How many pixels to zoom per step (positive for zoom in, negative for zoom out, padded with black)', default=2, show_default=True)
+@click.option('--pixel-zoom', '-zoom', type=int, help='How many pixels to zoom per step (positive for zoom in, negative for zoom out, padded with black)', default=2, show_default=True)
 @click.option('--rotation-deg', '-rot', type=float, help='Rotate image counter-clockwise per frame (padded with black)', default=0.0, show_default=True)
 @click.option('--translate-x', '-tx', type=float, help='Translate the image in the horizontal axis per frame (from left to right, padded with black)', default=0.0, show_default=True)
 @click.option('--translate-y', '-ty', type=float, help='Translate the image in the vertical axis per frame (from top to bottom, padded with black)', default=0.0, show_default=True)
