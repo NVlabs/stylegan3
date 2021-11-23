@@ -350,7 +350,7 @@ def project(
 
 @click.command()
 @click.pass_context
-@click.option('--network', '-net', 'network_pkl', type=click.Path(exists=True, dir_okay=False), help='Network pickle filename', required=True)
+@click.option('--network', '-net', 'network_pkl', help='Network pickle filename', required=True)
 @click.option('--target', '-t', 'target_fname', type=click.Path(exists=True, dir_okay=False), help='Target image file to project to', required=True, metavar='FILE')
 # Optimization options
 @click.option('--num-steps', '-nsteps', help='Number of optimization steps', type=click.IntRange(min=0), default=1000, show_default=True)
