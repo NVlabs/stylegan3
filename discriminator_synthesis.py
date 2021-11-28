@@ -49,21 +49,6 @@ def get_available_layers(max_resolution: int) -> List[str]:
     return available_layers
 
 
-def parse_layers(s: str) -> List[str]:
-    """Helper function for parsing a string of comma-separated layers and returning a list of the individual layers"""
-    str_list = s.split(',')
-
-    # Get all the possible layers up to resolution 1024
-    all_available_layers = get_available_layers(max_resolution=1024)
-
-    for layer in str_list:
-        message = f'{layer} is not a possible layer! Available layers: {all_available_layers}'
-        # We also let the user choose all the layers
-        assert layer in all_available_layers or layer == 'all', message
-
-    return str_list
-
-
 # ----------------------------------------------------------------------------
 # DeepDream code; modified from Erik Linder-Norén's repository: https://github.com/eriklindernoren/PyTorch-Deep-Dream
 
@@ -90,7 +75,7 @@ def get_image(seed: int = 0,
                 shape = (3, image_size, image_size)
                 resolutions = [(2**i, 2**i) for i in range(1, 6+1)]  # for lacunarity = 2.0  # TODO: set as cli variable
                 factors = [0.5**i for i in range(6)]  # for persistence = 0.5 TODO: set as cli variables
-                g_cuda = torch.Generator(device='cuda')
+                g_cuda = torch.Generator(device='cuda').manual_seed(seed)
                 rgb = FractalPerlin2D(shape, resolutions, factors, generator=g_cuda)().cpu().numpy()
                 rgb = (255 * (rgb + 1) / 2).astype(np.uint8)  # [-1.0, 1.0] => [0, 255]
                 image = Image.fromarray(np.stack(rgb, axis=2), 'RGB')
@@ -245,7 +230,7 @@ def style_transfer_discriminator():
 @click.option('--lr', 'learning_rate', type=float, help='Learning rate', default=1e-2, show_default=True)
 @click.option('--iterations', '-it', type=int, help='Number of gradient ascent steps per octave', default=20, show_default=True)
 # Layer options
-@click.option('--layers', type=parse_layers, help='Layers of the Discriminator to use as the features. If "all", will generate a dream image per available layer in the loaded model', default=['b16_conv1'], show_default=True)
+@click.option('--layers', type=str, help='Layers of the Discriminator to use as the features. If "all", will generate a dream image per available layer in the loaded model. If "use_all", will use all available layers.', default='b16_conv1', show_default=True)
 @click.option('--normed', 'norm_model_layers', is_flag=True, help='Add flag to divide the features of each layer of D by its number of elements')
 @click.option('--sqrt-normed', 'sqrt_norm_model_layers', is_flag=True, help='Add flag to divide the features of each layer of D by the square root of its number of elements')
 # Octaves options
@@ -264,7 +249,7 @@ def discriminator_dream(
         class_idx: Optional[int],  # TODO: conditional model
         learning_rate: float,
         iterations: int,
-        layers: List[str],
+        layers: str,
         norm_model_layers: bool,
         sqrt_norm_model_layers: bool,
         num_octaves: int,
@@ -282,12 +267,15 @@ def discriminator_dream(
     # Get the model resolution (image resizing and getting available layers)
     model_resolution = D.img_resolution
 
+    # TODO: do this better, as wec can combine these conditions later
+    layers = layers.split(',')
+
     # We will use the features of the Discriminator, on the layer specified by the user
     model = DiscriminatorFeatures(D).requires_grad_(False).to(device)
 
     if 'all' in layers:
         # Get all the available layers in a list
-        available_layers = get_available_layers(max_resolution=model.get_block_resolutions()[0])
+        layers = get_available_layers(max_resolution=model_resolution)
 
         # Get the image and image name
         image, starting_image = get_image(seed=seed, image_noise=image_noise,
@@ -313,7 +301,7 @@ def discriminator_dream(
                 'iterations': iterations
             },
             'layer_options': {
-                'layer': available_layers,
+                'layer': layers,
                 'norm_model_layers': norm_model_layers,
                 'sqrt_norm_model_layers': sqrt_norm_model_layers
             },
@@ -331,19 +319,27 @@ def discriminator_dream(
         gen_utils.save_config(ctx=ctx, run_dir=run_dir)
 
         # For each layer:
-        for av_layer in available_layers:
+        for layer in layers:
             # Extract deep dream image
-            dreamed_image = deep_dream(image, model, model_resolution, layers=[av_layer], normed=norm_model_layers,
+            dreamed_image = deep_dream(image, model, model_resolution, layers=[layer], normed=norm_model_layers,
                                        sqrt_normed=sqrt_norm_model_layers, iterations=iterations, lr=learning_rate,
                                        octave_scale=octave_scale, num_octaves=num_octaves, unzoom_octave=unzoom_octave)
 
             # Save the resulting dreamed image
-            filename = f'layer-{av_layer}_dreamed_{os.path.basename(starting_image).split(".")[0]}.jpg'
+            filename = f'layer-{layer}_dreamed_{os.path.basename(starting_image).split(".")[0]}.jpg'
             Image.fromarray(dreamed_image, 'RGB').save(os.path.join(run_dir, filename))
 
     else:
+        if 'use_all' in layers:
+            # Get all available layers
+            layers = get_available_layers(max_resolution=model_resolution)
+        else:
+            # Parse the layers given by the user and leave only those available by the model
+            available_layers = get_available_layers(max_resolution=model_resolution)
+            layers = [layer for layer in layers if layer in available_layers]
         # Get the image and image name
-        image, starting_image = get_image(seed=seed, starting_image=starting_image, image_size=model_resolution)
+        image, starting_image = get_image(seed=seed, image_noise=image_noise,
+                                          starting_image=starting_image, image_size=model_resolution)
 
         # Extract deep dream image
         dreamed_image = deep_dream(image, model, model_resolution, layers=layers, normed=norm_model_layers,
@@ -395,7 +391,7 @@ def discriminator_dream(
 @click.option('--lr', 'learning_rate', type=float, help='Learning rate', default=5e-3, show_default=True)
 @click.option('--iterations', '-it', type=click.IntRange(min=1), help='Number of gradient ascent steps per octave', default=10, show_default=True)
 # Layer options
-@click.option('--layers', type=parse_layers, help='Layers of the Discriminator to use as the features. If None, will default to the output of D.', default='b16_conv0', show_default=True)
+@click.option('--layers', type=str, help='Comma-separated list of the layers of the Discriminator to use as the features. If "use_all", will use all available layers.', default='b16_conv0', show_default=True)
 @click.option('--normed', 'norm_model_layers', is_flag=True, help='Add flag to divide the features of each layer of D by its number of elements')
 @click.option('--sqrt-normed', 'sqrt_norm_model_layers', is_flag=True, help='Add flag to divide the features of each layer of D by the square root of its number of elements')
 # Octaves options
@@ -424,7 +420,7 @@ def discriminator_dream_zoom(
         class_idx: Optional[int],  # TODO: conditional model
         learning_rate: float,
         iterations: int,
-        layers: List[str],
+        layers: str,
         norm_model_layers: Optional[bool],
         sqrt_norm_model_layers: Optional[bool],
         num_octaves: int,
@@ -450,6 +446,15 @@ def discriminator_dream_zoom(
     # Get the model resolution (for resizing the starting image if needed)
     model_resolution = D.img_resolution
     zoom_size = model_resolution - 2 * pixel_zoom
+
+    layers = layers.split(',')
+    if 'use_all' in layers:
+        # Get all available layers
+        layers = get_available_layers(max_resolution=model_resolution)
+    else:
+        # Parse the layers given by the user and leave only those available by the model
+        available_layers = get_available_layers(max_resolution=model_resolution)
+        layers = [layer for layer in layers if layer in available_layers]
 
     # We will use the features of the Discriminator, on the layer specified by the user
     model = DiscriminatorFeatures(D).requires_grad_(False).to(device)
