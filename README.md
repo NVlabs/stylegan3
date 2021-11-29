@@ -20,6 +20,7 @@ This repository adds the following (not yet the complete list):
 * Training
   * `--mirrory`: Added vertical mirroring for doubling the dataset size
   * `--gamma`: If no R1 regularization is provided, the heuristic formula will be used from [StyleGAN2](https://github.com/NVlabs/stylegan2).
+  * `--aug`: ***TODO*** add [Deceive-D/APA](https://github.com/EndlessSora/DeceiveD) as an option.
   * `--augpipe`: Now available to use is [StyleGAN2-ADA's](https://github.com/NVlabs/stylegan2-ada-pytorch) full list of augpipe, e,g., `blit`, `geom`, `bgc`, `bgcfnc`, etc.
   * `--img-snap`: When to save snapshot images, so now it's independent of when the model is saved;
   * `--snap-res`: The resolution of the snapshots, depending on your screen resolution, or how many images you wish to see per tick. Available resolutions: `1080p`, `4k`, and `8k`.
