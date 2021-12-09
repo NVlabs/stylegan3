@@ -222,6 +222,7 @@ def style_transfer_discriminator():
 @main.command(name='dream')
 @click.pass_context
 @click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
+@click.option('--cfg', type=click.Choice(['stylegan3-t', 'stylegan3-r', 'stylegan2']), help='Model base configuration', default=None)
 # Synthesis options
 @click.option('--seed', type=int, help='Random seed to use', default=0)
 @click.option('--random-image-noise', '-noise', 'image_noise', type=click.Choice(['random', 'perlin']), default='random', show_default=True)
@@ -243,6 +244,7 @@ def style_transfer_discriminator():
 def discriminator_dream(
         ctx: click.Context,
         network_pkl: Union[str, os.PathLike],
+        cfg: Optional[str],
         seed: int,
         image_noise: str,
         starting_image: Union[str, os.PathLike],
@@ -260,6 +262,9 @@ def discriminator_dream(
 ):
     print(f'Loading networks from "{network_pkl}"...')
     # Define the model
+    if cfg is not None:
+        assert network_pkl in gen_utils.resume_specs[cfg], f'This model is not available for config {cfg}!'
+        network_pkl = gen_utils.resume_specs[cfg]
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     with dnnlib.util.open_url(network_pkl) as f:
         D = legacy.load_network_pkl(f)['D'].eval().requires_grad_(False).to(device)  # type: ignore
