@@ -264,7 +264,7 @@ def discriminator_dream(
     # Define the model
     if cfg is not None:
         assert network_pkl in gen_utils.resume_specs[cfg], f'This model is not available for config {cfg}!'
-        network_pkl = gen_utils.resume_specs[cfg]
+        network_pkl = gen_utils.resume_specs[cfg][network_pkl]
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     with dnnlib.util.open_url(network_pkl) as f:
         D = legacy.load_network_pkl(f)['D'].eval().requires_grad_(False).to(device)  # type: ignore
