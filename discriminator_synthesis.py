@@ -55,7 +55,8 @@ def get_available_layers(max_resolution: int) -> List[str]:
 def get_image(seed: int = 0,
               image_noise: str = 'random',
               starting_image: Union[str, os.PathLike] = None,
-              image_size: int = 1024) -> Tuple[PIL.Image.Image, str]:
+              image_size: int = 1024,
+              convert_to_grayscale: bool = False) -> Tuple[PIL.Image.Image, str]:
     """Set the random seed (NumPy + PyTorch), as well as get an image from a path or generate a random one with the seed"""
     torch.manual_seed(seed)
     rnd = np.random.RandomState(seed)
@@ -82,6 +83,9 @@ def get_image(seed: int = 0,
 
             except ImportError:
                 raise ImportError('pyperlin not found! Install it via "pip install pyperlin"')
+
+    if convert_to_grayscale:
+        image = image.convert('L').convert('RGB')  # We do a little trolling to Pillow (so we have a 3-channel image)
 
     return image, starting_image
 
@@ -227,6 +231,7 @@ def style_transfer_discriminator():
 @click.option('--seed', type=int, help='Random seed to use', default=0)
 @click.option('--random-image-noise', '-noise', 'image_noise', type=click.Choice(['random', 'perlin']), default='random', show_default=True)
 @click.option('--starting-image', type=str, help='Path to image to start from', default=None)
+@click.option('--convert-to-grayscale', '-grayscale', is_flag=True, help='Add flag to grayscale the initial image')
 @click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)', default=None)
 @click.option('--lr', 'learning_rate', type=float, help='Learning rate', default=1e-2, show_default=True)
 @click.option('--iterations', '-it', type=int, help='Number of gradient ascent steps per octave', default=20, show_default=True)
@@ -248,6 +253,7 @@ def discriminator_dream(
         seed: int,
         image_noise: str,
         starting_image: Union[str, os.PathLike],
+        convert_to_grayscale: bool,
         class_idx: Optional[int],  # TODO: conditional model
         learning_rate: float,
         iterations: int,
@@ -284,7 +290,9 @@ def discriminator_dream(
 
         # Get the image and image name
         image, starting_image = get_image(seed=seed, image_noise=image_noise,
-                                          starting_image=starting_image, image_size=model_resolution)
+                                          starting_image=starting_image,
+                                          image_size=model_resolution,
+                                          convert_to_grayscale=convert_to_grayscale)
 
         # Make the run dir in the specified output directory
         desc = 'discriminator-dream-all_layers'
@@ -344,7 +352,9 @@ def discriminator_dream(
             layers = [layer for layer in layers if layer in available_layers]
         # Get the image and image name
         image, starting_image = get_image(seed=seed, image_noise=image_noise,
-                                          starting_image=starting_image, image_size=model_resolution)
+                                          starting_image=starting_image,
+                                          image_size=model_resolution,
+                                          convert_to_grayscale=convert_to_grayscale)
 
         # Extract deep dream image
         dreamed_image = deep_dream(image, model, model_resolution, layers=layers, normed=norm_model_layers,
@@ -388,10 +398,12 @@ def discriminator_dream(
 @main.command(name='dream-zoom')
 @click.pass_context
 @click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
+@click.option('--cfg', type=click.Choice(['stylegan3-t', 'stylegan3-r', 'stylegan2']), help='Model base configuration', default=None)
 # Synthesis options
 @click.option('--seed', type=int, help='Random seed to use', default=0, show_default=True)
 @click.option('--random-image-noise', '-noise', 'image_noise', type=click.Choice(['random', 'perlin']), default='random', show_default=True)
 @click.option('--starting-image', type=str, help='Path to image to start from', default=None)
+@click.option('--convert-to-grayscale', '-grayscale', is_flag=True, help='Add flag to grayscale the initial image')
 @click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)', default=None)
 @click.option('--lr', 'learning_rate', type=float, help='Learning rate', default=5e-3, show_default=True)
 @click.option('--iterations', '-it', type=click.IntRange(min=1), help='Number of gradient ascent steps per octave', default=10, show_default=True)
@@ -419,9 +431,11 @@ def discriminator_dream(
 def discriminator_dream_zoom(
         ctx: click.Context,
         network_pkl: Union[str, os.PathLike],
+        cfg: Optional[str],
         seed: int,
         image_noise: Optional[str],
         starting_image: Optional[Union[str, os.PathLike]],
+        convert_to_grayscale: bool,
         class_idx: Optional[int],  # TODO: conditional model
         learning_rate: float,
         iterations: int,
@@ -444,6 +458,9 @@ def discriminator_dream_zoom(
 ):
     print(f'Loading networks from "{network_pkl}"...')
     # Define the model
+    if cfg is not None:
+        assert network_pkl in gen_utils.resume_specs[cfg], f'This model is not available for config {cfg}!'
+        network_pkl = gen_utils.resume_specs[cfg][network_pkl]
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     with dnnlib.util.open_url(network_pkl) as f:
         D = legacy.load_network_pkl(f)['D'].eval().requires_grad_(False).to(device)  # type: ignore
@@ -466,7 +483,9 @@ def discriminator_dream_zoom(
 
     # Get the image and image name
     image, starting_image = get_image(seed=seed, image_noise=image_noise,
-                                      starting_image=starting_image, image_size=model_resolution)
+                                      starting_image=starting_image,
+                                      image_size=model_resolution,
+                                      convert_to_grayscale=convert_to_grayscale)
 
     # Make the run dir in the specified output directory
     desc = 'discriminator-dream-zoom'
