@@ -25,7 +25,9 @@ Compatibility:
 
 ## Image cleanup Ubuntu
 sudo apt update
+
 sudo apt install imagemagick
+
 Convert *.png files to RBG format
 - mogrify -type TrueColor -colorspace RGB *.png 
 
