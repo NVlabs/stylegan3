@@ -30,14 +30,15 @@ def main():
 
 @main.command(name='images')
 @click.pass_context
-@click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
+@click.option('--network', 'network_pkl', help='Network pickle filename: can be URL, local file, or the name of the model in torch_utils.gen_utils.resume_specs', required=True)
+@click.option('--cfg', help='Config of the network, used only if you want to use one of the models that are in torch_utils.gen_utils.resume_specs')
 # Recreate snapshot grid during training (doesn't work!!!)
 @click.option('--recreate-snapshot-grid', 'training_snapshot', is_flag=True, help='Add flag if you wish to recreate the snapshot grid created during training')
 @click.option('--snapshot-size', type=click.Choice(['1080p', '4k', '8k']), help='Size of the snapshot', default='4k', show_default=True)
 # Synthesis options (feed a list of seeds or give the projected w to synthesize)
 @click.option('--seeds', type=gen_utils.num_range, help='List of random seeds')
 @click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
-@click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)')
+@click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)', default=None, show_default=True)
 @click.option('--noise-mode', help='Noise mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
 @click.option('--projected-w', help='Projection result file; can be either .npy or .npz files', type=click.Path(exists=True, dir_okay=False), metavar='FILE')
 @click.option('--new-center', type=gen_utils.parse_new_center, help='New center for the W latent space; a seed (int) or a path to a projected dlatent (.npy/.npz)', default=None)
@@ -51,6 +52,7 @@ def main():
 def generate_images(
         ctx: click.Context,
         network_pkl: str,
+        cfg: str,
         training_snapshot: bool,
         snapshot_size: str,
         seeds: Optional[List[int]],
@@ -71,26 +73,37 @@ def generate_images(
 
     \b
     # Generate curated MetFaces images without truncation (Fig.10 left)
-    python generate.py generate-images --trunc=1 --seeds=85,265,297,849 \\
+    python generate.py images --trunc=1 --seeds=85,265,297,849 \\
         --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metfaces.pkl
 
     \b
     # Generate uncurated MetFaces images with truncation (Fig.12 upper left)
-    python generate.py generate-images --trunc=0.7 --seeds=600-605 \\
+    python generate.py images --trunc=0.7 --seeds=600-605 \\
         --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metfaces.pkl
 
     \b
     # Generate class conditional CIFAR-10 images (Fig.17 left, Car)
-    python generate.py generate-images --seeds=0-35 --class=1 \\
+    python generate.py images --seeds=0-35 --class=1 \\
         --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/cifar10.pkl
 
     \b
     # Render an image from projected W
-    python generate.py generate-images --projected_w=projected_w.npz \\
+    python generate.py images --projected_w=projected_w.npz \\
         --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metfaces.pkl
+
+    \b
+    Generate class conditional StyleGAN2 WikiArt images, save each individually, and save all of them as a grid
+    python generate.py images --cfg=stylegan2 --network=wikiart1024-C --class=155 \\
+        --trunc=0.7 --seeds=10-50 --save-grid
     """
     print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda')
+    # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
+    try:
+        network_pkl = gen_utils.resume_specs[cfg][network_pkl]
+    except KeyError:
+        # Otherwise, it's a local file or an url
+        pass
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
 
@@ -117,10 +130,9 @@ def generate_images(
         return
 
     # Labels.
+    class_idx = gen_utils.parse_class(G, class_idx, ctx)
     label = torch.zeros([1, G.c_dim], device=device)
     if G.c_dim != 0:
-        if class_idx is None:
-            ctx.fail('Must specify class label with --class when using a conditional network')
         label[:, class_idx] = 1
     else:
         if class_idx is not None:
@@ -318,10 +330,9 @@ def random_interpolation_video(
     mp4_name = f'{grid_width}x{grid_height}-slerp-{slowdown}xslowdown'
 
     # Labels.
+    class_idx = gen_utils.parse_class(G, class_idx, ctx)
     label = torch.zeros([1, G.c_dim], device=device)
     if G.c_dim != 0:
-        if class_idx is None:
-            ctx.fail('Must specify class label with --class when using a conditional network')
         label[:, class_idx] = 1
     else:
         if class_idx is not None:

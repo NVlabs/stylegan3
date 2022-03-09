@@ -57,7 +57,7 @@ def create_image_grid(images: np.ndarray, grid_size: Optional[Tuple[int, int]] =
 
 def parse_fps(fps: Union[str, int]) -> int:
     """Return FPS for the video; at worst, video will be 1 FPS, but no lower.
-    Useful if we don't have Click, else simply use Click.IntRange(min=1)"""
+    Useful if we don't have click, else simply use click.IntRange(min=1)"""
     if isinstance(fps, int):
         return max(fps, 1)
     try:
@@ -124,6 +124,19 @@ def parse_new_center(s: str) -> Tuple[str, Union[int, np.ndarray]]:
         new_center = get_w_from_file(s, return_ext=False)  # it's a projected dlatent
         return s, new_center
 
+
+def parse_class(G, class_idx: int, ctx: click.Context) -> Union[int, type(None)]:
+    """Parse the class_idx and return it, if it's allowed by the conditional model G"""
+    if G.c_dim == 0:
+        # Unconditional model
+        return None
+    # Conditional model, so class must be specified by user
+    if class_idx is None:
+        ctx.fail('Must specify class label with --class when using a conditional network!')
+    if class_idx not in range(G.c_dim):
+        ctx.fail(f'Your class label can be at most {G.c_dim - 1}!')
+    print(f'Using class {class_idx} (available labels: range({G.c_dim - 1})...)')
+    return class_idx
 
 # ----------------------------------------------------------------------------
 
@@ -356,8 +369,19 @@ resume_specs = {
             'cifar10':       'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-cifar10-32x32.pkl',
             'metfaces1024':  'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfaces-1024x1024.pkl',
             'metfacesu1024': 'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan2/versions/1/files/stylegan2-metfacesu-1024x1024.pkl',
-            # Community models; TODO: add the interesting ones found in https://github.com/justinpinkney/awesome-pretrained-stylegan2
+            # Other configs are available at: https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/, but I will list here the config-f only
+            'lsuncar512':    'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-car-config-f.pkl',  # config-f
+            'lsuncat256':    'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-cat-config-f.pkl',  # config-f
+            'lsunchurch256': 'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-church-config-f.pkl',  # config-f
+            'lsunhorse256':  'https://nvlabs-fi-cdn.nvidia.com/stylegan2/networks/stylegan2-horse-config-f.pkl',  # config-f
+            # Community models. More can be found at: https://github.com/justinpinkney/awesome-pretrained-stylegan2 by @justinpinkney, but weren't added here
             'minecraft1024': 'https://github.com/jeffheaton/pretrained-gan-minecraft/releases/download/v1/minecraft-gan-2020-12-22.pkl',  # Thanks to @jeffheaton
+            'imagenet512':   'https://battle.shawwn.com/sdc/stylegan2-imagenet-512/model.ckpt-533504.pkl',  # Thanks to @shawwn
+            'wikiart1024-C': 'https://archive.org/download/wikiart-stylegan2-conditional-model/WikiArt5.pkl',  # Thanks to @pbaylies; conditional (167 classes in total: --class=0 to 166)
+            'wikiart1024-U': 'https://archive.org/download/wikiart-stylegan2-conditional-model/WikiArt_Uncond2.pkl',  # Thanks to @pbaylies; unconditional
+            'maps1024':      'https://archive.org/download/mapdreamer/mapdreamer.pkl',  # Thanks to @tjukanov
+            'fursona512':    'https://thisfursonadoesnotexist.com/model/network-e621-r-512-3194880.pkl',  # Thanks to @arfafax
+            'mlpony512':     'https://thisponydoesnotexist.net/model/network-ponies-1024-151552.pkl',  # Thanks to @arfafax
             # Deceive-D/APA models (ignoring the faces models): https://github.com/EndlessSora/DeceiveD
             'afhqcat256':    'https://drive.google.com/u/0/uc?export=download&confirm=zFoN&id=1P9ouHIK-W8JTb6bvecfBe4c_3w6gmMJK',
             'anime256':      'https://drive.google.com/u/0/uc?export=download&confirm=6Uie&id=1EWOdieqELYmd2xRxUR4gnx7G10YI5dyP',
@@ -385,6 +409,12 @@ resume_specs = {
             # Community models, found in: https://github.com/justinpinkney/awesome-pretrained-stylegan3 by @justinpinkney
             'landscapes256': 'https://drive.google.com/u/0/uc?export=download&confirm=eJHe&id=14UGDDOusZ9TMb-pOrF0PAjMGVWLSAii1',  # Thanks to @justinpinkney
             'wikiart1024':   'https://drive.google.com/u/0/uc?export=download&confirm=2tz5&id=18MOpwTMJsl_Z17q-wQVnaRLCUFZYSNkj',  # Thanks to @justinpinkney
+            # -> Wombo Dream-based models found in: https://github.com/edstoica/lucid_stylegan3_datasets_models by @edstoica; TODO: more to come, update the list as they are released!
+            'mechfuture256': 'https://www.dropbox.com/s/v2oie53cz62ozvu/network-snapshot-000029.pkl',  # Thanks to @edstoica; 29kimg tick
+            'vivflowers256': 'https://www.dropbox.com/s/o33lhgnk91hstvx/network-snapshot-000069.pkl',  # Thanks to @edstoica; 68kimg tick
+            'alienglass256': 'https://www.dropbox.com/s/gur14k0e7kspguy/network-snapshot-000038.pkl',  # Thanks to @edstoica; 38kimg tick
+            'scificity256': 'https://www.dropbox.com/s/1kfsmlct4mriphc/network-snapshot-000210.pkl',  # Thanks to @edstoica; 210kimg tick
+            'scifiship256': 'https://www.dropbox.com/s/02br3mjkma1hubc/network-snapshot-000162.pkl',  # Thanks to @edstoica; 168kimg tick
         }
 }
 
@@ -394,7 +424,7 @@ resume_specs = {
 def z_to_img(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: float, noise_mode: str = 'const') -> np.ndarray:
     """
     Get an image/np.ndarray from a latent Z using G, the label, truncation_psi, and noise_mode. The shape
-    of the output image/np.ndarray will be [len(dlatents), G.img_resolution, G.img_resolution, G.img_channels]
+    of the output image/np.ndarray will be [len(latents), G.img_resolution, G.img_resolution, G.img_channels]
     """
     assert isinstance(latents, torch.Tensor), f'latents should be a torch.Tensor!: "{type(latents)}"'
     if len(latents.shape) == 1:
