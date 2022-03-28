@@ -105,6 +105,7 @@ def main():
 @click.option('--styles', 'col_styles', type=parse_styles, help='Style layers to use; can pass "coarse", "middle", "fine", or a list or range of ints', default='0-6', show_default=True)
 @click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
 @click.option('--noise-mode', help='Noise mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
+@click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
 # Extra parameters for saving the results
 @click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out', 'grid'), show_default=True, metavar='DIR')
 @click.option('--description', '-desc', type=str, help='Description name for the directory path to save results', default='', show_default=True)
@@ -116,6 +117,7 @@ def generate_style_mix(
         col_styles: List[int],
         truncation_psi: float,
         noise_mode: str,
+        anchor_latent_space: bool,
         outdir: str,
         description: str,
 ):
@@ -132,6 +134,9 @@ def generate_style_mix(
     device = torch.device('cuda')
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
+
+    if anchor_latent_space:
+        gen_utils.anchor_latent_space(G)
 
     # Sanity check: loaded model and selected styles must be compatible
     max_style = G.mapping.num_ws
@@ -212,6 +217,7 @@ def generate_style_mix(
 # Synthesis options
 @click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
 @click.option('--noise-mode', type=click.Choice(['const', 'random', 'none']), help='Noise mode', default='const', show_default=True)
+@click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
 @click.option('--row-seed', '-row', 'row_seed', type=int, help='Random seed to use for video row', required=True)
 @click.option('--columns', '-cols', 'columns', type=str, help='Path to dlatents (.npy/.npz) or seeds to use ("a", "b-c", "e,f-g,h,i", etc.), or a combination of both', required=True)
 @click.option('--styles', 'col_styles', type=parse_styles, help='Style layers to use; can pass "coarse", "middle", "fine", or a list or range of ints', default='0-6', show_default=True)
@@ -233,6 +239,7 @@ def random_stylemix_video(
         compress: bool,
         truncation_psi: float,
         noise_mode: str,
+        anchor_latent_space: bool,
         fps: int,
         duration_sec: float,
         outdir: Union[str, os.PathLike],
@@ -258,6 +265,9 @@ def random_stylemix_video(
     device = torch.device('cuda')
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)
+
+    if anchor_latent_space:
+        gen_utils.anchor_latent_space(G)
 
     # Get the average dlatent
     w_avg = G.mapping.w_avg

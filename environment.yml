@@ -25,3 +25,5 @@ dependencies:
     - pyspng
     - psutil  # PR #125 by @fastflair / #111 by @siddharthksah
     - tensorboard  # PR #125 by @fastflair
+    - moviepy
+    - ffmpeg
