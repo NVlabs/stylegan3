@@ -386,6 +386,15 @@ resume_specs = {
             'afhqcat256':    'https://drive.google.com/u/0/uc?export=download&confirm=zFoN&id=1P9ouHIK-W8JTb6bvecfBe4c_3w6gmMJK',
             'anime256':      'https://drive.google.com/u/0/uc?export=download&confirm=6Uie&id=1EWOdieqELYmd2xRxUR4gnx7G10YI5dyP',
             'cub256':        'https://drive.google.com/u/0/uc?export=download&confirm=KwZS&id=1J0qactT55ofAvzddDE_xnJEY8s3vbo1_',
+            # Self-Distilled StyleGAN (full body representation of each class): https://github.com/self-distilled-stylegan/self-distilled-internet-photos
+            'sddogs1024':    'https://storage.googleapis.com/self-distilled-stylegan/dogs_1024_pytorch.pkl',
+            'sdelephant512': 'https://storage.googleapis.com/self-distilled-stylegan/elephants_512_pytorch.pkl',
+            'sdhorses512':   'https://storage.googleapis.com/self-distilled-stylegan/horses_256_pytorch.pkl',
+            'sdbicycles256': 'https://storage.googleapis.com/self-distilled-stylegan/bicycles_256_pytorch.pkl',
+            'sdlions512':    'https://storage.googleapis.com/self-distilled-stylegan/lions_512_pytorch.pkl',
+            'sdgiraffes512': 'https://storage.googleapis.com/self-distilled-stylegan/giraffes_512_pytorch.pkl',
+            'sdparrots512':  'https://storage.googleapis.com/self-distilled-stylegan/parrots_512_pytorch.pkl'
+
         },
         # For StyleGAN3 config-r models (--cfg=stylegan3-r)
         'stylegan3-r': {
@@ -410,11 +419,11 @@ resume_specs = {
             'landscapes256': 'https://drive.google.com/u/0/uc?export=download&confirm=eJHe&id=14UGDDOusZ9TMb-pOrF0PAjMGVWLSAii1',  # Thanks to @justinpinkney
             'wikiart1024':   'https://drive.google.com/u/0/uc?export=download&confirm=2tz5&id=18MOpwTMJsl_Z17q-wQVnaRLCUFZYSNkj',  # Thanks to @justinpinkney
             # -> Wombo Dream-based models found in: https://github.com/edstoica/lucid_stylegan3_datasets_models by @edstoica; TODO: more to come, update the list as they are released!
-            'mechfuture256': 'https://www.dropbox.com/s/v2oie53cz62ozvu/network-snapshot-000029.pkl',  # Thanks to @edstoica; 29kimg tick
-            'vivflowers256': 'https://www.dropbox.com/s/o33lhgnk91hstvx/network-snapshot-000069.pkl',  # Thanks to @edstoica; 68kimg tick
-            'alienglass256': 'https://www.dropbox.com/s/gur14k0e7kspguy/network-snapshot-000038.pkl',  # Thanks to @edstoica; 38kimg tick
-            'scificity256': 'https://www.dropbox.com/s/1kfsmlct4mriphc/network-snapshot-000210.pkl',  # Thanks to @edstoica; 210kimg tick
-            'scifiship256': 'https://www.dropbox.com/s/02br3mjkma1hubc/network-snapshot-000162.pkl',  # Thanks to @edstoica; 168kimg tick
+            'mechfuture256': 'https://www.dropbox.com/s/v2oie53cz62ozvu/network-snapshot-000029.pkl?dl=1',  # Thanks to @edstoica; 29kimg tick
+            'vivflowers256': 'https://www.dropbox.com/s/o33lhgnk91hstvx/network-snapshot-000069.pkl?dl=1',  # Thanks to @edstoica; 68kimg tick
+            'alienglass256': 'https://www.dropbox.com/s/gur14k0e7kspguy/network-snapshot-000038.pkl?dl=1',  # Thanks to @edstoica; 38kimg tick
+            'scificity256': 'https://www.dropbox.com/s/1kfsmlct4mriphc/network-snapshot-000210.pkl?dl=1',  # Thanks to @edstoica; 210kimg tick
+            'scifiship256': 'https://www.dropbox.com/s/02br3mjkma1hubc/network-snapshot-000162.pkl?dl=1',  # Thanks to @edstoica; 168kimg tick
         }
 }
 

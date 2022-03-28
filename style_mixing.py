@@ -48,23 +48,22 @@ def style_names(max_style: int, file_name: str, desc: str, col_styles: List[int]
     to both the file name and the new directory to be created.
     """
     if list(range(0, 4)) == col_styles:
-        file_name = f'{file_name}-coarse_styles'
-        desc = f'{desc}-coarse_styles'
+        styles = 'coarse_styles'
     elif list(range(4, 8)) == col_styles:
-        file_name = f'{file_name}-middle_styles'
-        desc = f'{desc}-middle_styles'
+        styles = 'middle_styles'
     elif list(range(8, max_style)) == col_styles:
-        file_name = f'{file_name}-fine_styles'
-        desc = f'{desc}-fine_styles'
+        styles = 'fine_styles'
     elif list(range(0, 8)) == col_styles:
-        file_name = f'{file_name}-coarse+middle_styles'
-        desc = f'{desc}-coarse+middle_styles'
+        styles = 'coarse+middle_styles'
     elif list(range(4, max_style)) == col_styles:
-        file_name = f'{file_name}-middle+fine_styles'
-        desc = f'{desc}-middle+fine_styles'
+        styles = 'middle+fine_styles'
     elif list(range(0, 4)) + list(range(8, max_style)) == col_styles:
-        file_name = f'{file_name}-coarse+fine_styles'
-        desc = f'{desc}-coarse+fine_styles'
+        styles = 'coarse+fine_styles'
+    else:
+        styles = 'custom_styles'
+
+    file_name = f'{file_name}-{styles}'
+    desc = f'{desc}-{styles}'
 
     return file_name, desc
 
