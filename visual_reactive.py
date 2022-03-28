@@ -112,6 +112,7 @@ def get_video_frames(mp4_filename: Union[str, os.PathLike],
 @click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
 @click.option('--new-center', type=gen_utils.parse_new_center, help='New center for the W latent space; a seed (int) or a path to a dlatent (.npy/.npz)', default=None)
 @click.option('--noise-mode', help='Noise mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
+@click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
 # Video options
 @click.option('--compress', is_flag=True, help='Add flag to compress the final mp4 file with ffmpeg-python (same resolution, lower file size)')
 # Extra parameters for saving the results
@@ -131,6 +132,7 @@ def visual_reactive_interpolation(
         truncation_psi: float,
         new_center: Tuple[str, Union[int, np.ndarray]],
         noise_mode: str,
+        anchor_latent_space: bool,
         outdir: Union[str, os.PathLike],
         description: str,
         compress: bool,
@@ -166,10 +168,12 @@ def visual_reactive_interpolation(
         model, preprocess = clip.load('ViT-B/32', device=device)
         model = model.requires_grad_(False)  # Otherwise OOM
 
-
     print('Loading Generator...')
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].eval().requires_grad_(False).to(device)  # type: ignore
+
+    if anchor_latent_space:
+        gen_utils.anchor_latent_space(G)
 
     if new_center is None:
         # Stick to the tracked center of W during training
