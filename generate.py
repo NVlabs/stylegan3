@@ -102,12 +102,14 @@ def generate_images(
     """
     print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda') if torch.cuda.is_available() and device == 'cuda' else torch.device('cpu')
+
     # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
     try:
         network_pkl = gen_utils.resume_specs[cfg][network_pkl]
     except KeyError:
         # Otherwise, it's a local file or an url
         pass
+
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
 

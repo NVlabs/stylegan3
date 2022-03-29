@@ -81,9 +81,6 @@ def launch_training(c, desc, outdir, dry_run):
         print('Dry run; exiting.')
         return
 
-    # Create output directory.
-    print('Creating output directory...')
-    os.makedirs(c.run_dir)
     with open(os.path.join(c.run_dir, 'training_options.json'), 'wt') as f:
         json.dump(c, f, indent=2)
 
