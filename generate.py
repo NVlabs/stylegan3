@@ -31,6 +31,7 @@ def main():
 @main.command(name='images')
 @click.pass_context
 @click.option('--network', 'network_pkl', help='Network pickle filename: can be URL, local file, or the name of the model in torch_utils.gen_utils.resume_specs', required=True)
+@click.option('--device', help='Device to use for image generation; using the CPU is slower than the GPU', type=click.Choice(['cpu', 'cuda']), default='cuda', show_default=True)
 @click.option('--cfg', help='Config of the network, used only if you want to use one of the models that are in torch_utils.gen_utils.resume_specs')
 # Recreate snapshot grid during training (doesn't work!!!)
 @click.option('--recreate-snapshot-grid', 'training_snapshot', is_flag=True, help='Add flag if you wish to recreate the snapshot grid created during training')
@@ -52,6 +53,7 @@ def main():
 def generate_images(
         ctx: click.Context,
         network_pkl: str,
+        device: Optional[str],
         cfg: str,
         training_snapshot: bool,
         snapshot_size: str,
@@ -97,7 +99,7 @@ def generate_images(
         --trunc=0.7 --seeds=10-50 --save-grid
     """
     print(f'Loading networks from "{network_pkl}"...')
-    device = torch.device('cuda')
+    device = torch.device('cuda') if torch.cuda.is_available() and device == 'cuda' else torch.device('cpu')
     # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
     try:
         network_pkl = gen_utils.resume_specs[cfg][network_pkl]
@@ -106,6 +108,10 @@ def generate_images(
         pass
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
+
+    # Setup for using CPU
+    if device.type == 'cpu':
+        gen_utils.use_cpu(G)
 
     description = 'generate-images' if len(description) == 0 else description
     # Create the run dir with the given name description

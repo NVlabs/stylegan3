@@ -18,6 +18,7 @@ import moviepy.editor
 # ----------------------------------------------------------------------------
 
 
+# TODO: this is no longer true for StyleGAN3, we have 14 layers irrespective of resolution
 def parse_styles(s: str) -> List[int]:
     """
     Helper function for parsing style layers. s will be a comma-separated list of values, and these can be
@@ -42,6 +43,7 @@ def parse_styles(s: str) -> List[int]:
     return nums
 
 
+# TODO: For StyleGAN3, there's only 'coarse' and 'fine' groups, though the boundary is not 100% clear
 def style_names(max_style: int, file_name: str, desc: str, col_styles: List[int]) -> Tuple[str, str]:
     """
     Add the styles if they are being used (from the StyleGAN paper)
@@ -100,6 +102,7 @@ def main():
 @main.command(name='grid')
 @click.pass_context
 @click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
+@click.option('--device', help='Device to use for image generation; using the CPU is slower than the GPU', type=click.Choice(['cpu', 'cuda']), default='cuda', show_default=True)
 # Synthesis options
 @click.option('--row-seeds', '-rows', 'row_seeds', type=gen_utils.num_range, help='Random seeds to use for image rows', required=True)
 @click.option('--col-seeds', '-cols', 'col_seeds', type=gen_utils.num_range, help='Random seeds to use for image columns', required=True)
@@ -112,6 +115,7 @@ def main():
 def generate_style_mix(
         ctx: click.Context,
         network_pkl: str,
+        device: Optional[str],
         row_seeds: List[int],
         col_seeds: List[int],
         col_styles: List[int],
@@ -130,9 +134,13 @@ def generate_style_mix(
     """
     # TODO: add class_idx
     print(f'Loading networks from "{network_pkl}"...')
-    device = torch.device('cuda')
+    device = torch.device('cuda') if torch.cuda.is_available() and device == 'cuda' else torch.device('cpu')
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
+
+    # Setup for using CPU
+    if device.type == 'cpu':
+        gen_utils.use_cpu(G)
 
     # Sanity check: loaded model and selected styles must be compatible
     max_style = G.mapping.num_ws

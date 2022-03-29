@@ -22,6 +22,7 @@ from viz import pickle_widget
 from viz import latent_widget
 from viz import stylemix_widget
 from viz import trunc_noise_widget
+from viz import class_widget
 from viz import performance_widget
 from viz import capture_widget
 from viz import layer_widget
@@ -52,6 +53,7 @@ class Visualizer(imgui_window.ImguiWindow):
         self.latent_widget      = latent_widget.LatentWidget(self)
         self.stylemix_widget    = stylemix_widget.StyleMixingWidget(self)
         self.trunc_noise_widget = trunc_noise_widget.TruncationNoiseWidget(self)
+        self.class_widget       = class_widget.ClassWidget(self)
         self.perf_widget        = performance_widget.PerformanceWidget(self)
         self.capture_widget     = capture_widget.CaptureWidget(self)
         self.layer_widget       = layer_widget.LayerWidget(self)
@@ -126,13 +128,14 @@ class Visualizer(imgui_window.ImguiWindow):
         self.latent_widget(expanded)
         self.stylemix_widget(expanded)
         self.trunc_noise_widget(expanded)
+        self.class_widget(expanded)
         expanded, _visible = imgui_utils.collapsing_header('Performance & capture', default=True)
         self.perf_widget(expanded)
         self.capture_widget(expanded)
         expanded, _visible = imgui_utils.collapsing_header('Layers & channels', default=True)
         self.layer_widget(expanded)
         with imgui_utils.grayed_out(not self.result.get('has_input_transform', False)):
-            expanded, _visible = imgui_utils.collapsing_header('Affine Transformation', default=True)
+            expanded, _visible = imgui_utils.collapsing_header('Affine Transformations', default=True)
             self.eq_widget(expanded)
 
         # Render.

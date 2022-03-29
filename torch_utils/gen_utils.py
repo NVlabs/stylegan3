@@ -348,6 +348,13 @@ def force_fp32(G) -> None:
             layer.use_fp16 = False
 
 
+def use_cpu(G) -> None:
+    """Use the CPU instead of the GPU; force_fp32 must be set to True, apart from the device setting"""
+    # @nurpax found this before: https://github.com/NVlabs/stylegan2-ada-pytorch/issues/54#issuecomment-793713965, but we
+    # will use @JCBrouwer's solution:  https://github.com/NVlabs/stylegan2-ada-pytorch/issues/105#issuecomment-838577639
+    import functools
+    G.forward = functools.partial(G.forward, force_fp32=True)
+
 # ----------------------------------------------------------------------------
 
 resume_specs = {

@@ -140,7 +140,7 @@ class EquivarianceWidget:
                 self.shear = dnnlib.EasyDict(self.shear_def)
 
         if show:
-            imgui.set_cursor_pos_x(imgui.get_content_region_max()[0] - 1 - viz.button_w*1 - viz.font_size*16)
+            imgui.set_cursor_pos_x(imgui.get_content_region_max()[0] - 1 - viz.button_w*1 - viz.font_size*16.75)
             _clicked, self.opts.mirror_x = imgui.checkbox('Mirror x##opts', self.opts.mirror_x)
             imgui.same_line()
             _clicked, self.opts.mirror_y = imgui.checkbox('Mirror y##opts', self.opts.mirror_y)

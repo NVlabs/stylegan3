@@ -224,6 +224,7 @@ class Renderer:
     def _render_impl(self, res,
         pkl             = None,
         w0_seeds        = [[0, 1]],
+        cls             = 0,
         stylemix_idx    = [],
         stylemix_seed   = 0,
         trunc_psi       = 1,
@@ -249,6 +250,8 @@ class Renderer:
         res.num_ws = G.num_ws
         res.has_noise = any('noise_const' in name for name, _buf in G.synthesis.named_buffers())
         res.has_input_transform = (hasattr(G.synthesis, 'input') and hasattr(G.synthesis.input, 'transform'))
+        res.is_conditional = G.c_dim > 0
+        res.num_classes = G.c_dim
 
         # Set input transform.
         if res.has_input_transform:
@@ -264,12 +267,12 @@ class Renderer:
         all_seeds = [seed for seed, _weight in w0_seeds] + [stylemix_seed]
         all_seeds = list(set(all_seeds))
         all_zs = np.zeros([len(all_seeds), G.z_dim], dtype=np.float32)
-        all_cs = np.zeros([len(all_seeds), G.c_dim], dtype=np.float32)
+        all_cs = np.zeros([len(all_seeds), G.c_dim], dtype=np.float32) # TODO: mix classes!
         for idx, seed in enumerate(all_seeds):
             rnd = np.random.RandomState(seed)
             all_zs[idx] = rnd.randn(G.z_dim)
-            if G.c_dim > 0:
-                all_cs[idx, rnd.randint(G.c_dim)] = 1
+            if res.is_conditional:
+                all_cs[idx, cls] = 1  # Thanks to @jasony93: https://github.com/NVlabs/stylegan3/issues/131
 
         # Run mapping network.
         w_avg = G.mapping.w_avg
