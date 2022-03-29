@@ -25,6 +25,7 @@ dependencies:
     - pyspng
     - psutil  # PR #125 by @fastflair / #111 by @siddharthksah
     - tensorboard  # PR #125 by @fastflair
-    - moviepy
-    - ffmpeg-python
-    - scikit-video
+    - moviepy==1.0.3
+    - ffmpeg-python==0.2.0
+    - scikit-video==1.1.11
+    - clip
