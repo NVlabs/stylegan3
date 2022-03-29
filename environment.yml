@@ -2,6 +2,7 @@ name: stylegan3
 channels:
   - pytorch
   - nvidia
+  - conda-forge  # PR #80 by @SetZero / #143 by @coldwaterq
 dependencies:
   - python >= 3.8
   - pip
@@ -10,7 +11,7 @@ dependencies:
   - pillow=8.3.1
   - scipy=1.7.1
   - pytorch=1.9.1
-  - cudatoolkit=11.1
+  - cudatoolkit>=11.1  # PR #116 by @edstoica
   - requests=2.26.0
   - tqdm=4.62.2
   - ninja=1.10.2
@@ -22,3 +23,8 @@ dependencies:
     - pyopengl==3.1.5
     - imageio-ffmpeg==0.4.3
     - pyspng
+    - psutil  # PR #125 by @fastflair / #111 by @siddharthksah
+    - tensorboard  # PR #125 by @fastflair
+    - moviepy
+    - ffmpeg-python
+    - scikit-video

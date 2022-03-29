@@ -41,6 +41,7 @@ def main():
 @click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
 @click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)', default=None, show_default=True)
 @click.option('--noise-mode', help='Noise mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
+@click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
 @click.option('--projected-w', help='Projection result file; can be either .npy or .npz files', type=click.Path(exists=True, dir_okay=False), metavar='FILE')
 @click.option('--new-center', type=gen_utils.parse_new_center, help='New center for the W latent space; a seed (int) or a path to a projected dlatent (.npy/.npz)', default=None)
 # Grid options
@@ -61,6 +62,7 @@ def generate_images(
         truncation_psi: float,
         class_idx: Optional[int],
         noise_mode: str,
+        anchor_latent_space: bool,
         projected_w: Optional[Union[str, os.PathLike]],
         new_center: Tuple[str, Union[int, np.ndarray]],  # TODO
         save_grid: bool,
@@ -112,6 +114,10 @@ def generate_images(
     # Setup for using CPU
     if device.type == 'cpu':
         gen_utils.use_cpu(G)
+
+    # Stabilize/anchor the latent space
+    if anchor_latent_space:
+        gen_utils.anchor_latent_space(G)
 
     description = 'generate-images' if len(description) == 0 else description
     # Create the run dir with the given name description
