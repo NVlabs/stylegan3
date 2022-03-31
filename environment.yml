@@ -28,4 +28,4 @@ dependencies:
     - moviepy==1.0.3
     - ffmpeg-python==0.2.0
     - scikit-video==1.1.11
-    - clip
+    - clip-by-openai

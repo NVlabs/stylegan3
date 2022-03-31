@@ -136,6 +136,7 @@ def parse_comma_separated_list(s):
 @click.option('--aug',          help='Augmentation mode',                                       type=click.Choice(['noaug', 'ada', 'fixed']), default='ada', show_default=True)
 @click.option('--augpipe',      help='Augmentation pipeline',                                   type=click.Choice(['blit', 'geom', 'color', 'filter', 'noise', 'cutout', 'bg', 'bgc', 'bgcf', 'bgcfn', 'bgcfnc']), default='bgc', show_default=True)
 @click.option('--resume',       help='Resume from given network pickle', metavar='[PATH|URL]',  type=str)
+@click.option('--initstrength', help='Override ADA augment strength at the beginning',          type=click.FloatRange(min=0.0), )
 @click.option('--freezed',      help='Freeze first layers of D', metavar='INT',                 type=click.IntRange(min=0), default=0, show_default=True)
 # Misc hyperparameters.
 @click.option('--gamma',        help='R1 regularization weight', metavar='FLOAT',               type=click.FloatRange(min=0), default=None)
@@ -282,6 +283,10 @@ def main(**kwargs):
             c.ada_target = opts.target
         if opts.aug == 'fixed':
             c.augment_p = opts.p
+
+    # Initial augmentation strength for opts.aug == 'ada'; thanks to @dvschultz
+    if opts.initstrength is not None:
+         c.augment_p = opts.initstrength
 
     # Resume.
 
