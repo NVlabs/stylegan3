@@ -57,7 +57,7 @@ def launch_training(c, desc, outdir, dry_run):
     dnnlib.util.Logger(should_flush=True)
 
     # Pick output directory.
-    c.run_dir = gen_utils.make_run_dir(outdir=outdir, desc=desc)
+    c.run_dir = gen_utils.make_run_dir(outdir=outdir, desc=desc, dry_run=dry_run)
 
     # Print options.
     print()
@@ -137,7 +137,9 @@ def parse_comma_separated_list(s):
 @click.option('--augpipe',      help='Augmentation pipeline',                                   type=click.Choice(['blit', 'geom', 'color', 'filter', 'noise', 'cutout', 'bg', 'bgc', 'bgcf', 'bgcfn', 'bgcfnc']), default='bgc', show_default=True)
 @click.option('--resume',       help='Resume from given network pickle', metavar='[PATH|URL]',  type=str)
 @click.option('--initstrength', help='Override ADA augment strength at the beginning',          type=click.FloatRange(min=0.0), )
-@click.option('--freezed',      help='Freeze first layers of D', metavar='INT',                 type=click.IntRange(min=0), default=0, show_default=True)
+@click.option('--freezeD',      help='Freeze first layers of D', metavar='INT',                 type=click.IntRange(min=0), default=0, show_default=True)
+@click.option('--freezeM',      help='Freeze first layers of the Mapping Network Gm',           type=click.IntRange(min=0), default=0, show_default=True)
+@click.option('--freezeE',      help='Freeze the embedding layer for conditional models',       type=bool, default=False, show_default=True)
 # Misc hyperparameters.
 @click.option('--gamma',        help='R1 regularization weight', metavar='FLOAT',               type=click.FloatRange(min=0), default=None)
 @click.option('--p',            help='Probability for --aug=fixed', metavar='FLOAT',            type=click.FloatRange(min=0, max=1), default=0.2, show_default=True)
@@ -212,7 +214,9 @@ def main(**kwargs):
     c.G_kwargs.channel_base = c.D_kwargs.channel_base = opts.cbase
     c.G_kwargs.channel_max = c.D_kwargs.channel_max = opts.cmax
     c.G_kwargs.mapping_kwargs.num_layers = (8 if opts.cfg == 'stylegan2' else 2) if opts.map_depth is None else opts.map_depth
-    c.D_kwargs.block_kwargs.freeze_layers = opts.freezed
+    c.G_kwargs.mapping_kwargs.freeze_layers = opts.freezeM
+    c.G_kwargs.mapping_kwargs.freeze_embed = opts.freezeE
+    c.D_kwargs.block_kwargs.freeze_layers = opts.freezeD
     c.D_kwargs.epilogue_kwargs.mbstd_group_size = opts.mbstd_group
     if opts.gamma is not None:
         c.loss_kwargs.r1_gamma = float(opts.gamma)

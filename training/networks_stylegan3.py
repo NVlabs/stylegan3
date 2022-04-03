@@ -72,19 +72,31 @@ class FullyConnectedLayer(torch.nn.Module):
         out_features,               # Number of output features.
         activation      = 'linear', # Activation function: 'relu', 'lrelu', etc.
         bias            = True,     # Apply additive bias before the activation function?
-        lr_multiplier   = 1,        # Learning rate multiplier.
-        weight_init     = 1,        # Initial standard deviation of the weight tensor.
-        bias_init       = 0,        # Initial value of the additive bias.
+        lr_multiplier   = 1.0,      # Learning rate multiplier.
+        weight_init     = 1.0,      # Initial standard deviation of the weight tensor.
+        bias_init       = 0.0,      # Initial value of the additive bias.
+        trainable       = True,     # Update the weights of this layer during training?
     ):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.activation = activation
-        self.weight = torch.nn.Parameter(torch.randn([out_features, in_features]) * (weight_init / lr_multiplier))
-        bias_init = np.broadcast_to(np.asarray(bias_init, dtype=np.float32), [out_features])
-        self.bias = torch.nn.Parameter(torch.from_numpy(bias_init / lr_multiplier)) if bias else None
         self.weight_gain = lr_multiplier / np.sqrt(in_features)
         self.bias_gain = lr_multiplier
+
+        weight = torch.randn([out_features, in_features]) * (weight_init / lr_multiplier)
+
+        if trainable:
+            self.weight = torch.nn.Parameter(weight)
+            bias_init = np.broadcast_to(np.asarray(bias_init, dtype=np.float32), [out_features])
+            self.bias = torch.nn.Parameter(torch.from_numpy(bias_init / lr_multiplier)) if bias else None
+        else:
+            self.register_buffer('weight', weight)
+            if bias is not None:
+                self.register_buffer('bias', bias)
+            else:
+                self.bias = None
+
 
     def forward(self, x):
         w = self.weight.to(x.dtype) * self.weight_gain
@@ -115,6 +127,8 @@ class MappingNetwork(torch.nn.Module):
         num_layers      = 2,        # Number of mapping layers.
         lr_multiplier   = 0.01,     # Learning rate multiplier for the mapping layers.
         w_avg_beta      = 0.998,    # Decay for tracking the moving average of W during training.
+        freeze_layers   = 0,        # Freeze-M: Number of layers of mapping network to freeze.
+        freeze_embed    = False,    # Freeze-E: Freeze the embedding layer for conditional models.
     ):
         super().__init__()
         self.z_dim = z_dim
@@ -123,12 +137,21 @@ class MappingNetwork(torch.nn.Module):
         self.num_ws = num_ws
         self.num_layers = num_layers
         self.w_avg_beta = w_avg_beta
+        self.trainable_layers = 0
+
+        def trainable_gen():
+            while True:
+                trainable = (self.trainable_layers >= freeze_layers)
+                self.trainable_layers += 1
+                yield trainable
+        trainable_iter = trainable_gen()
 
         # Construct layers.
-        self.embed = FullyConnectedLayer(self.c_dim, self.w_dim) if self.c_dim > 0 else None
+        self.embed = FullyConnectedLayer(self.c_dim, self.w_dim, trainable=not freeze_embed) if self.c_dim > 0 else None
         features = [self.z_dim + (self.w_dim if self.c_dim > 0 else 0)] + [self.w_dim] * self.num_layers
         for idx, in_features, out_features in zip(range(num_layers), features[:-1], features[1:]):
-            layer = FullyConnectedLayer(in_features, out_features, activation='lrelu', lr_multiplier=lr_multiplier)
+            layer = FullyConnectedLayer(in_features, out_features, activation='lrelu',
+                                        lr_multiplier=lr_multiplier, trainable=next(trainable_iter))
             setattr(self, f'fc{idx}', layer)
         self.register_buffer('w_avg', torch.zeros([w_dim]))
 

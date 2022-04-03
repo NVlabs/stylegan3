@@ -97,17 +97,28 @@ class FullyConnectedLayer(torch.nn.Module):
         out_features,               # Number of output features.
         bias            = True,     # Apply additive bias before the activation function?
         activation      = 'linear', # Activation function: 'relu', 'lrelu', etc.
-        lr_multiplier   = 1,        # Learning rate multiplier.
-        bias_init       = 0,        # Initial value for the additive bias.
+        lr_multiplier   = 1.0,      # Learning rate multiplier.
+        bias_init       = 0.0,      # Initial value for the additive bias.
+        trainable       = True,     # Update the weights of this layer during training?
     ):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.activation = activation
-        self.weight = torch.nn.Parameter(torch.randn([out_features, in_features]) / lr_multiplier)
-        self.bias = torch.nn.Parameter(torch.full([out_features], np.float32(bias_init))) if bias else None
         self.weight_gain = lr_multiplier / np.sqrt(in_features)
         self.bias_gain = lr_multiplier
+
+        weight = torch.randn([out_features, in_features]) / lr_multiplier
+
+        if trainable:
+            self.weight = torch.nn.Parameter(weight)
+            self.bias = torch.nn.Parameter(torch.full([out_features], np.float32(bias_init))) if bias else None
+        else:
+            self.register_buffer('weight', weight)
+            if bias is not None:
+                self.register_buffer('bias', bias)
+            else:
+                self.bias = None
 
     def forward(self, x):
         w = self.weight.to(x.dtype) * self.weight_gain
@@ -200,6 +211,8 @@ class MappingNetwork(torch.nn.Module):
         activation      = 'lrelu',  # Activation function: 'relu', 'lrelu', etc.
         lr_multiplier   = 0.01,     # Learning rate multiplier for the mapping layers.
         w_avg_beta      = 0.998,    # Decay for tracking the moving average of W during training, None = do not track.
+        freeze_layers   = 0,        # Freeze-M: Number of layers of mapping network to freeze.
+        freeze_embed    = False,    # Freeze-E: Freeze the embedding layer for conditional models.
     ):
         super().__init__()
         self.z_dim = z_dim
@@ -208,6 +221,14 @@ class MappingNetwork(torch.nn.Module):
         self.num_ws = num_ws
         self.num_layers = num_layers
         self.w_avg_beta = w_avg_beta
+        self.trainable_layers = 0
+
+        def trainable_gen():
+            while True:
+                trainable = (self.trainable_layers >= freeze_layers)
+                self.trainable_layers += 1
+                yield trainable
+        trainable_iter = trainable_gen()
 
         if embed_features is None:
             embed_features = w_dim
@@ -218,11 +239,12 @@ class MappingNetwork(torch.nn.Module):
         features_list = [z_dim + embed_features] + [layer_features] * (num_layers - 1) + [w_dim]
 
         if c_dim > 0:
-            self.embed = FullyConnectedLayer(c_dim, embed_features)
+            self.embed = FullyConnectedLayer(c_dim, embed_features, trainable=not freeze_embed)
         for idx in range(num_layers):
             in_features = features_list[idx]
             out_features = features_list[idx + 1]
-            layer = FullyConnectedLayer(in_features, out_features, activation=activation, lr_multiplier=lr_multiplier)
+            layer = FullyConnectedLayer(in_features, out_features, activation=activation,
+                                        lr_multiplier=lr_multiplier, trainable=next(trainable_iter))
             setattr(self, f'fc{idx}', layer)
 
         if num_ws is not None and w_avg_beta is not None:

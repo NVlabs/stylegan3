@@ -28,6 +28,9 @@ This repository adds/has the following changes (not yet the complete list):
   * `--resume-kimg`: Starting number of `kimg`, useful when continuing training a previous run
   * `--outdir`: Automatically set as `training-runs`, so no need to set beforehand (in general this is true throughout the repository)
   * `--metrics`: Now set by default to `None`, so there's no need to worry about this one
+  * `--freezeD`: Renamed `--freezed` for better readability
+  * `--freezeM`: Freeze the first layers of the Mapping Network Gm (`G.mapping`)
+  * `--freezeE`: Freeze the embedding layer of the Generator (for class-conditional models)
   * `--resume`: All available pre-trained models from NVIDIA (and more) can be used with a simple dictionary, depending on the `--cfg` used.
   For example, if you wish to use StyleGAN3's `config-r`, then set `--cfg=stylegan3-r`. In addition, if you wish to transfer learn from FFHQU at 1024 resolution, set `--resume=ffhqu1024`.
     * The full list of currently available models to transfer learn from (or synthesize new images with) is the following (***TODO:*** add small description of each model, 
