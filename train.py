@@ -214,9 +214,9 @@ def main(**kwargs):
     c.G_kwargs.channel_base = c.D_kwargs.channel_base = opts.cbase
     c.G_kwargs.channel_max = c.D_kwargs.channel_max = opts.cmax
     c.G_kwargs.mapping_kwargs.num_layers = (8 if opts.cfg == 'stylegan2' else 2) if opts.map_depth is None else opts.map_depth
-    c.G_kwargs.mapping_kwargs.freeze_layers = opts.freezeM
-    c.G_kwargs.mapping_kwargs.freeze_embed = opts.freezeE
-    c.D_kwargs.block_kwargs.freeze_layers = opts.freezeD
+    c.G_kwargs.mapping_kwargs.freeze_layers = opts.freezem
+    c.G_kwargs.mapping_kwargs.freeze_embed = opts.freezee
+    c.D_kwargs.block_kwargs.freeze_layers = opts.freezed
     c.D_kwargs.epilogue_kwargs.mbstd_group_size = opts.mbstd_group
     if opts.gamma is not None:
         c.loss_kwargs.r1_gamma = float(opts.gamma)

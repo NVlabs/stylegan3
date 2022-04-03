@@ -85,11 +85,12 @@ class FullyConnectedLayer(torch.nn.Module):
         self.bias_gain = lr_multiplier
 
         weight = torch.randn([out_features, in_features]) * (weight_init / lr_multiplier)
+        bias_init = np.broadcast_to(np.asarray(bias_init, dtype=np.float32), [out_features])
+        bias = torch.from_numpy(bias_init / lr_multiplier) if bias else None
 
         if trainable:
             self.weight = torch.nn.Parameter(weight)
-            bias_init = np.broadcast_to(np.asarray(bias_init, dtype=np.float32), [out_features])
-            self.bias = torch.nn.Parameter(torch.from_numpy(bias_init / lr_multiplier)) if bias else None
+            self.bias = torch.nn.Parameter(bias)
         else:
             self.register_buffer('weight', weight)
             if bias is not None:
