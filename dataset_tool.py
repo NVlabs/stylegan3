@@ -363,7 +363,7 @@ def convert_dataset(
         "labels": [
             ["00000/img00000000.png",6],
             ["00000/img00000001.png",9],
-            ... repeated for every image in the datase
+            ... repeated for every image in the dataset
             ["00049/img00049999.png",1]
         ]
     }
