@@ -128,12 +128,25 @@ This repository adds/has the following changes (not yet the complete list):
     * Added the rest of the affine transformations
     * Added widget for class-conditional models (***TODO:*** mix classes with continuous values for `cls`!)
 * General model and code additions
-    * ***TODO:*** [Better sampling?](https://arxiv.org/abs/2110.08009)
     * [Multi-modal truncation trick](https://arxiv.org/abs/2202.12211): find the different clusters in your model and use the closest one to your dlatent, in order to increase the fidelity (TODO: finish skeleton implementation)
     * StyleGAN3: anchor the latent space for easier to follow interpolations (thanks to [Rivers Have Wings](https://github.com/crowsonkb) and [nshepperd](https://github.com/nshepperd)).
     * Use CPU instead of GPU if desired (not recommended, but perfectly fine for generating images, whenever the custom CUDA kernels fail to compile).
     * Add missing dependencies and channels so that the [`conda`](https://docs.conda.io/en/latest/) environment is correctly setup in Windows 
       (PR's [#111](https://github.com/NVlabs/stylegan3/pull/111) /[#116](https://github.com/NVlabs/stylegan3/pull/116) /[#125](https://github.com/NVlabs/stylegan3/pull/125) and [#80](https://github.com/NVlabs/stylegan3/pull/80) /[#143](https://github.com/NVlabs/stylegan3/pull/143) from the base, respectively)
+      * ***TODO:*** Current state fails to install the CUDA version of PyTorch, so make different files for each OS (Ubuntu/Windows)
+    * Use [StyleGAN-NADA](https://github.com/rinongal/StyleGAN-nada) models with any part of the code (Issue [#9](https://github.com/PDillis/stylegan3-fun/issues/9))
+      * The StyleGAN-NADA models must first be converted via [Vadim Epstein](https://github.com/eps696) 's conversion code found [here](https://github.com/eps696/stylegan2ada#tweaking-models).
+* ***TODO*** list (this is a long one with more to come, so any help is appreciated):
+  * [Generate images/interpolations with the layers of the model](https://twitter.com/makeitrad1/status/1517251876504600576?s=20&t=X5Df8N2gG_zGh5jJLVkvvw)
+    * Access the layers via: `renderer.Renderer.run_synthesis_net(net, captuer_layer=layer)`
+  * Multi-modal truncation trick: finish skeleton code, add 
+  * [PTI](https://github.com/danielroich/PTI) for better inversion
+  * [Better sampling](https://arxiv.org/abs/2110.08009)
+  * [Progressive growing modules for StyleGAN-XL](https://github.com/autonomousvision/stylegan_xl) to be able to use the pretrained models
+  * [Add cross-model interpolation](https://twitter.com/arfafax/status/1297681537337446400?s=20&t=xspnTaLFTvd7y4krg8tkxA)
+  * Generate class labels automatically with dataset structure (subfolders and such)
+  * Make it easy to download pretrained models from Drive, otherwise a lot of models can't be used with `dnnlib.util.open_url`
+    (e.g., [StyleGAN-Human](https://github.com/stylegan-human/StyleGAN-Human) models)
 
 ***TODO:*** Finish documentation for better user experience, add videos/images, code samples, visuals...
 

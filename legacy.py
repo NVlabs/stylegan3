@@ -21,40 +21,45 @@ from torch_utils import misc
 
 def load_network_pkl(f, force_fp16=False):
     data = _LegacyUnpickler(f).load()
+    try:
+        # Legacy TensorFlow pickle => convert.
+        if isinstance(data, tuple) and len(data) == 3 and all(isinstance(net, _TFNetworkStub) for net in data):
+            tf_G, tf_D, tf_Gs = data
+            G = convert_tf_generator(tf_G)
+            D = convert_tf_discriminator(tf_D)
+            G_ema = convert_tf_generator(tf_Gs)
+            data = dict(G=G, D=D, G_ema=G_ema)
 
-    # Legacy TensorFlow pickle => convert.
-    if isinstance(data, tuple) and len(data) == 3 and all(isinstance(net, _TFNetworkStub) for net in data):
-        tf_G, tf_D, tf_Gs = data
-        G = convert_tf_generator(tf_G)
-        D = convert_tf_discriminator(tf_D)
-        G_ema = convert_tf_generator(tf_Gs)
-        data = dict(G=G, D=D, G_ema=G_ema)
+        # Add missing fields.
+        if 'training_set_kwargs' not in data:
+            data['training_set_kwargs'] = None
+        if 'augment_pipe' not in data:
+            data['augment_pipe'] = None
 
-    # Add missing fields.
-    if 'training_set_kwargs' not in data:
-        data['training_set_kwargs'] = None
-    if 'augment_pipe' not in data:
-        data['augment_pipe'] = None
+        # Validate contents.
+        if 'G' in data:
+            assert isinstance(data['G'], torch.nn.Module)
+        if 'D' in data:
+            assert isinstance(data['D'], torch.nn.Module)
+        assert isinstance(data['G_ema'], torch.nn.Module)
+        assert isinstance(data['training_set_kwargs'], (dict, type(None)))
+        assert isinstance(data['augment_pipe'], (torch.nn.Module, type(None)))
 
-    # Validate contents.
-    assert isinstance(data['G'], torch.nn.Module)
-    assert isinstance(data['D'], torch.nn.Module)
-    assert isinstance(data['G_ema'], torch.nn.Module)
-    assert isinstance(data['training_set_kwargs'], (dict, type(None)))
-    assert isinstance(data['augment_pipe'], (torch.nn.Module, type(None)))
-
-    # Force FP16.
-    if force_fp16:
-        for key in ['G', 'D', 'G_ema']:
-            old = data[key]
-            kwargs = copy.deepcopy(old.init_kwargs)
-            fp16_kwargs = kwargs.get('synthesis_kwargs', kwargs)
-            fp16_kwargs.num_fp16_res = 4
-            fp16_kwargs.conv_clamp = 256
-            if kwargs != old.init_kwargs:
-                new = type(old)(**kwargs).eval().requires_grad_(False)
-                misc.copy_params_and_buffers(old, new, require_all=True)
-                data[key] = new
+        # Force FP16.
+        if force_fp16:
+            for key in ['G', 'D', 'G_ema']:
+                old = data[key]
+                kwargs = copy.deepcopy(old.init_kwargs)
+                fp16_kwargs = kwargs.get('synthesis_kwargs', kwargs)
+                fp16_kwargs.num_fp16_res = 4
+                fp16_kwargs.conv_clamp = 256
+                if kwargs != old.init_kwargs:
+                    new = type(old)(**kwargs).eval().requires_grad_(False)
+                    misc.copy_params_and_buffers(old, new, require_all=True)
+                    data[key] = new
+    except KeyError:
+        # Most likely a StyleGAN-NADA pkl, so pass and return data
+        pass
     return data
 
 #----------------------------------------------------------------------------
