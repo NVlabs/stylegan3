@@ -100,6 +100,26 @@ def num_range(s: str, remove_repeated: bool = True) -> List[int]:
     return nums
 
 
+def float_list(s: str) -> List[float]:
+    """
+    Helper function for parsing a string of comma-separated floats and returning each float
+    """
+    str_list = s.split(',')
+    nums = []
+    float_re = re.compile(r'^(\d+.\d+)$')
+    for el in str_list:
+        match = float_re.match(el)
+        if match:
+            nums.append(float(match.group(1)))
+        else:
+            try:
+                nums.append(float(el))
+            except ValueError:
+                continue  # Ignore bad values
+
+    return nums
+
+
 def parse_slowdown(slowdown: Union[str, int]) -> int:
     """Function to parse the 'slowdown' parameter by the user. Will approximate to the nearest power of 2."""
     # TODO: slowdown should be any int
@@ -437,24 +457,11 @@ resume_specs = {
 # ----------------------------------------------------------------------------
 
 
-def z_to_img(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: float, noise_mode: str = 'const') -> np.ndarray:
-    """
-    Get an image/np.ndarray from a latent Z using G, the label, truncation_psi, and noise_mode. The shape
-    of the output image/np.ndarray will be [len(latents), G.img_resolution, G.img_resolution, G.img_channels]
-    """
-    assert isinstance(latents, torch.Tensor), f'latents should be a torch.Tensor!: "{type(latents)}"'
-    if len(latents.shape) == 1:
-        latents = latents.unsqueeze(0)  # An individual latent => [1, G.z_dim]
-    img = G(z=latents, c=label, truncation_psi=truncation_psi, noise_mode=noise_mode)
-    img = (img + 1) * 255 / 2  # [-1.0, 1.0] -> [0.0, 255.0]
-    img = img.permute(0, 2, 3, 1).clamp(0, 255).to(torch.uint8).cpu().numpy()  # NCWH => NWHC
-    return img
-
-
 def w_to_img(G, dlatents: Union[List[torch.Tensor], torch.Tensor], noise_mode: str = 'const') -> np.ndarray:
     """
     Get an image/np.ndarray from a dlatent W using G and the selected noise_mode. The final shape of the
     returned image will be [len(dlatents), G.img_resolution, G.img_resolution, G.img_channels].
+        Note: this function should be used after doing the truncation trick!
     """
     assert isinstance(dlatents, torch.Tensor), f'dlatents should be a torch.Tensor!: "{type(dlatents)}"'
     if len(dlatents.shape) == 2:
@@ -463,6 +470,30 @@ def w_to_img(G, dlatents: Union[List[torch.Tensor], torch.Tensor], noise_mode: s
     synth_image = (synth_image + 1) * 255/2  # [-1.0, 1.0] -> [0.0, 255.0]
     synth_image = synth_image.permute(0, 2, 3, 1).clamp(0, 255).to(torch.uint8).cpu().numpy()  # NCWH => NWHC
     return synth_image
+
+
+def z_to_dlatent(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: float) -> torch.Tensor:
+    """
+    Get the dlatent from the given latent, class label and truncation psi
+    """
+    assert isinstance(latents, torch.Tensor), f'latents should be a torch.Tensor!: "{type(latents)}"'
+    assert isinstance(label, torch.Tensor), f'label should be a torch.Tensor!: "{type(label)}"'
+    if len(latents.shape) == 1:
+        latents = latents.unsqueeze(0)  # An individual latent => [1, G.z_dim]
+    dlatents = G.mapping(z=latents, c=label)
+
+    return dlatents
+
+
+def z_to_img(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: float, noise_mode: str = 'const') -> np.ndarray:
+    """
+    Get an image/np.ndarray from a latent Z using G, the label, truncation_psi, and noise_mode. The shape
+    of the output image/np.ndarray will be [len(latents), G.img_resolution, G.img_resolution, G.img_channels]
+    """
+    dlatents = z_to_dlatent(G=G, latents=latents, label=label)
+    dlatents = G.mapping.w_avg + (G.mapping.w_avg - dlatents) * truncation_psi
+    img = w_to_img(G=G, dlatents=dlatents, noise_mode=noise_mode)  # Let's not redo code
+    return img
 
 
 def get_w_from_seed(G, device: torch.device, seed: int, truncation_psi: float) -> torch.Tensor:

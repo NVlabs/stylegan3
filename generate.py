@@ -42,10 +42,11 @@ def main():
 @click.option('--projected-w', help='Projection result file; can be either .npy or .npz files', type=click.Path(exists=True, dir_okay=False), metavar='FILE')
 @click.option('--new-center', type=gen_utils.parse_new_center, help='New center for the W latent space; a seed (int) or a path to a projected dlatent (.npy/.npz)', default=None)
 # Grid options
-@click.option('--save-grid', help='Use flag to save image grid', is_flag=True, show_default=True)
+@click.option('--save-grid', is_flag=True, help='Use flag to save image grid')
 @click.option('--grid-width', '-gw', type=click.IntRange(min=1), help='Grid width (number of columns)', default=None)
 @click.option('--grid-height', '-gh', type=click.IntRange(min=1), help='Grid height (number of rows)', default=None)
 # Extra parameters for saving the results
+@click.option('--save-dlatents', is_flag=True, help='Use flag to save individual dlatents (W) for each individual resulting image')
 @click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out', 'grid'), show_default=True, metavar='DIR')
 @click.option('--description', '-desc', type=str, help='Description name for the directory path to save results', default='generate-images', show_default=True)
 def generate_images(
@@ -57,12 +58,13 @@ def generate_images(
         truncation_psi: float,
         class_idx: Optional[int],
         noise_mode: str,
-        anchor_latent_space: bool,
+        anchor_latent_space: Optional[bool],
         projected_w: Optional[Union[str, os.PathLike]],
         new_center: Tuple[str, Union[int, np.ndarray]],  # TODO
-        save_grid: bool,
+        save_grid: Optional[bool],
         grid_width: int,
         grid_height: int,
+        save_dlatents: Optional[bool],
         outdir: str,
         description: str,
 ):
@@ -150,15 +152,33 @@ def generate_images(
     if seeds is None:
         ctx.fail('--seeds option is required when not using --projected-w')
 
+    # Recenter the latent space, if specified
+    if new_center is None:
+        w_avg = G.mapping.w_avg
+    else:
+        new_center, new_center_value = new_center
+        # We get the new center using the int (a seed) or recovered dlatent (an np.ndarray)
+        if isinstance(new_center_value, int):
+            w_avg = gen_utils.get_w_from_seed(G, device, new_center_value,
+                                              truncation_psi=1.0)  # We want the pure dlatent
+        elif isinstance(new_center_value, np.ndarray):
+            w_avg = torch.from_numpy(new_center_value).to(device)
+        else:
+            ctx.fail('Error: New center has strange format! Only an int (seed) or a file (.npy/.npz) are accepted!')
+
     # Generate images.
     images = []
     for seed_idx, seed in enumerate(seeds):
         print('Generating image for seed %d (%d/%d) ...' % (seed, seed_idx, len(seeds)))
-        z = torch.from_numpy(np.random.RandomState(seed).randn(1, G.z_dim)).to(device)
-        img = gen_utils.z_to_img(G, z, label, truncation_psi, noise_mode)[0]
+        dlatent = gen_utils.get_w_from_seed(G, device, seed, truncation_psi=1.0)
+        # Do truncation trick with center (new or global)
+        w = w_avg + (dlatent - w_avg) * truncation_psi
+        img = gen_utils.w_to_img(G, w, noise_mode)[0]
         if save_grid:
             images.append(img)
-        PIL.Image.fromarray(img, 'RGB').save(os.path.join(run_dir, f'seed{seed:04d}.jpg'))
+        PIL.Image.fromarray(img, 'RGB').save(os.path.join(run_dir, f'seed{seed}.jpg'))
+        if save_dlatents:
+            np.save(os.path.join(run_dir, f'seed{seed}.npy'), w.unsqueeze(0).cpu().numpy())
 
     if save_grid:
         print('Saving image grid...')
