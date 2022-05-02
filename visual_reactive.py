@@ -16,6 +16,7 @@ import PIL
 from PIL import Image
 import scipy.ndimage as nd
 
+from fractions import Fraction
 import numpy as np
 import torch
 from torchvision import transforms
@@ -48,7 +49,7 @@ def get_video_information(mp4_filename: Union[str, os.PathLike],
     """Take a mp4 file and return a list containing each frame as a NumPy array"""
     metadata = skvideo.io.ffprobe(mp4_filename)
     # Get video properties
-    fps = int(np.rint(eval(metadata['video']['@avg_frame_rate'])))
+    fps = int(np.rint(float(Fraction(metadata['video']['@avg_frame_rate']))))  # Possible error here if we get 0
     total_video_num_frames = int(metadata['video']['@nb_frames'])
     video_duration = float(metadata['video']['@duration'])
     video_width = int(metadata['video']['@width'])
