@@ -60,7 +60,7 @@ def generate_images(
         noise_mode: str,
         anchor_latent_space: Optional[bool],
         projected_w: Optional[Union[str, os.PathLike]],
-        new_center: Tuple[str, Union[int, np.ndarray]],  # TODO
+        new_center: Tuple[str, Union[int, np.ndarray]],
         save_grid: Optional[bool],
         grid_width: int,
         grid_height: int,
@@ -421,6 +421,173 @@ def random_interpolation_video(
     }
     gen_utils.save_config(ctx=ctx, run_dir=run_dir)
 
+
+# ----------------------------------------------------------------------------
+
+
+@main.command('circular-video')
+@click.pass_context
+@click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
+@click.option('--cfg', type=click.Choice(['stylegan2', 'stylegan3-t', 'stylegan3-r']), help='Config of the network, used only if you want to use the pretrained models in torch_utils.gen_utils.resume_specs')
+# Synthesis options
+@click.option('--seed', type=int, help='Random seed', required=True)
+@click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
+@click.option('--new-center', type=gen_utils.parse_new_center, help='New center for the W latent space; a seed (int) or a path to a projected dlatent (.npy/.npz)', default=None)
+@click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)')
+@click.option('--noise-mode', help='Noise mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
+@click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
+# Video options
+@click.option('--grid-width', '-gw', type=click.IntRange(min=1), help='Video grid width / number of columns', default=None, show_default=True)
+@click.option('--grid-height', '-gh', type=click.IntRange(min=1), help='Video grid height / number of rows', default=None, show_default=True)
+@click.option('--duration-sec', '-sec', type=float, help='Duration length of the video', default=10.0, show_default=True)
+@click.option('--fps', type=click.IntRange(min=1), help='Video FPS.', default=30, show_default=True)
+@click.option('--compress', is_flag=True, help='Add flag to compress the final mp4 file with ffmpeg-python (same resolution, lower file size)')
+# Extra parameters for saving the results
+@click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out', 'video'), show_default=True, metavar='DIR')
+@click.option('--description', '-desc', type=str, help='Description name for the directory path to save results')
+def circular_video(
+        ctx: click.Context,
+        network_pkl: Union[str, os.PathLike],
+        cfg: str,
+        seed: int,
+        truncation_psi: float,
+        new_center: Tuple[str, Union[int, np.ndarray]],
+        class_idx: Optional[int],
+        noise_mode: str,
+        anchor_latent_space: bool,
+        grid_width: int,
+        grid_height: int,
+        duration_sec: float,
+        fps: int,
+        compress: bool,
+        outdir: Union[str, os.PathLike],
+        description: str
+):
+    """
+    Generate a circular interpolation video in two random axes of Z, given a seed
+    """
+    # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
+    try:
+        network_pkl = gen_utils.resume_specs[cfg][network_pkl]
+    except KeyError:
+        # Otherwise, it's a local file or an url
+        pass
+
+    print(f'Loading networks from "{network_pkl}"...')
+    device = torch.device('cuda')
+
+    with dnnlib.util.open_url(network_pkl) as f:
+        G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
+
+    # Get the labels, if the model is conditional
+    class_idx = gen_utils.parse_class(G, class_idx, ctx)
+    label = torch.zeros([1, G.c_dim], device=device)
+    if G.c_dim != 0:
+        label[:, class_idx] = 1
+    else:
+        if class_idx is not None:
+            print('warn: --class=lbl ignored when running on an unconditional network')
+
+    # Get center of the latent space (global or user-indicated)
+    if new_center is None:
+        w_avg = G.mapping.w_avg
+    else:
+        new_center, new_center_value = new_center
+        # We get the new center using the int (a seed) or recovered dlatent (an np.ndarray)
+        if isinstance(new_center_value, int):
+            w_avg = gen_utils.get_w_from_seed(G, device, new_center_value,
+                                              truncation_psi=1.0)  # We want the pure dlatent
+        elif isinstance(new_center_value, np.ndarray):
+            w_avg = torch.from_numpy(new_center_value).to(device)
+        else:
+            ctx.fail('Error: New center has strange format! Only an int (seed) or a file (.npy/.npz) are accepted!')
+
+    # Stabilize/anchor the latent space
+    if anchor_latent_space:
+        gen_utils.anchor_latent_space(G)
+
+    # Create the run dir with the given name description; add slowdown if different from the default (1)
+    desc = 'circular-video'
+    desc = f'circular-video-{description}' if description is not None else desc
+    run_dir = gen_utils.make_run_dir(outdir, desc)
+
+    # Calculate the total number of frames in the video
+    num_frames = int(np.rint(duration_sec * fps))
+
+    grid_size = (grid_width, grid_height)
+    # Get the latents with the random state
+    random_state = np.random.RandomState(seed)
+    # Choose two random dims on which to plot the circles (from 0 to G.z_dim-1),
+    # one pair for each element of the grid (2*grid_width*grid_height in total)
+    z1, z2 = np.split(random_state.choice(G.z_dim, 2 * np.prod(grid_size), replace=False), 2)
+
+    # We partition the circle in equal strides w.r.t. num_frames
+    get_angles = lambda num_frames: np.linspace(0, 2*np.pi, num_frames)
+    angles = get_angles(num_frames=num_frames)
+
+    # Basic Polar to Cartesian transformation
+    polar_to_cartesian = lambda radius, theta: (radius * np.cos(theta), radius * np.sin(theta))
+    # Using a fixed radius (this value is irrelevant), we generate the circles in each chosen grid
+    Z1, Z2 = polar_to_cartesian(radius=5.0, theta=angles)
+
+    # Our latents will be comprising mostly of zeros
+    all_latents = np.zeros([num_frames, np.prod(grid_size), G.z_dim]).astype(np.float32)
+    # Obtain all the frames belonging to the specific box in the grid,
+    # replacing the zero values with the circle perimeter values
+    for box in range(np.prod(grid_size)):
+        box_frames = all_latents[:, box]
+        box_frames[:, [z1[box], z2[box]]] = np.vstack((Z1, Z2)).T
+
+    # Auxiliary function for moviepy
+    def make_frame(t):
+        frame_idx = int(np.clip(np.round(t * fps), 0, num_frames - 1))
+        latents = torch.from_numpy(all_latents[frame_idx]).to(device)
+        # Get the images with the respective label
+        dlatents = gen_utils.z_to_dlatent(G, latents, label, truncation_psi=1.0)  # Get the pure dlatent
+        # Do truncation trick
+        w = w_avg + (dlatents - w_avg) * truncation_psi
+        # Get the images
+        images = gen_utils.w_to_img(G, w, noise_mode)
+        # Generate the grid for this timestep
+        grid = gen_utils.create_image_grid(images, grid_size)
+        # Grayscale => RGB
+        if grid.shape[2] == 1:
+            grid = grid.repeat(3, 2)
+        return grid
+
+    # Generate video using the respective make_frame function
+    videoclip = moviepy.editor.VideoClip(make_frame, duration=duration_sec)
+    videoclip.set_duration(duration_sec)
+
+    # Name of the video
+    mp4_name = f'{grid_width}x{grid_height}-circular'
+
+    # Change the video parameters (codec, bitrate) if you so desire
+    final_video = os.path.join(run_dir, f'{mp4_name}.mp4')
+    videoclip.write_videofile(final_video, fps=fps, codec='libx264', bitrate='16M')
+
+    # Compress the video (lower file size, same resolution)
+    if compress:
+        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
+
+    # Save the configuration used
+    new_center = 'w_avg' if new_center is None else new_center
+    ctx.obj = {
+        'network_pkl': network_pkl,
+        'seed': seed,
+        'truncation_psi': truncation_psi,
+        'new_center': new_center,
+        'class_idx': class_idx,
+        'noise_mode': noise_mode,
+        'grid_width': grid_width,
+        'grid_height': grid_height,
+        'duration_sec': duration_sec,
+        'video_fps': fps,
+        'run_dir': run_dir,
+        'description': desc,
+        'compress': compress
+    }
+    gen_utils.save_config(ctx=ctx, run_dir=run_dir)
 
 # ----------------------------------------------------------------------------
 
