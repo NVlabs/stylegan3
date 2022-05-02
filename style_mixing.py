@@ -387,10 +387,6 @@ def random_stylemix_video(
     final_video = os.path.join(run_dir, f'{mp4_name}.mp4')
     videoclip.write_videofile(final_video, fps=fps, codec='libx264', bitrate='16M')
 
-    # Compress the video (smaller file size, same resolution; not guaranteed though)
-    if compress:
-        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
-
     # Save the configuration used for the experiment
     ctx.obj = {
         'network_pkl': network_pkl,
@@ -408,6 +404,10 @@ def random_stylemix_video(
     }
     # Save the run configuration
     gen_utils.save_config(ctx=ctx, run_dir=run_dir)
+
+    # Compress the video (smaller file size, same resolution; not guaranteed though)
+    if compress:
+        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
 
 
 # ----------------------------------------------------------------------------

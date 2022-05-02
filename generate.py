@@ -396,10 +396,6 @@ def random_interpolation_video(
     final_video = os.path.join(run_dir, f'{mp4_name}.mp4')
     videoclip.write_videofile(final_video, fps=fps, codec='libx264', bitrate='16M')
 
-    # Compress the video (lower file size, same resolution)
-    if compress:
-        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
-
     # Save the configuration used
     new_center = 'w_avg' if new_center is None else new_center
     ctx.obj = {
@@ -420,6 +416,10 @@ def random_interpolation_video(
         'smoothing_sec': smoothing_sec
     }
     gen_utils.save_config(ctx=ctx, run_dir=run_dir)
+
+    # Compress the video (lower file size, same resolution)
+    if compress:
+        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
 
 
 # ----------------------------------------------------------------------------
@@ -566,15 +566,12 @@ def circular_video(
     final_video = os.path.join(run_dir, f'{mp4_name}.mp4')
     videoclip.write_videofile(final_video, fps=fps, codec='libx264', bitrate='16M')
 
-    # Compress the video (lower file size, same resolution)
-    if compress:
-        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
-
     # Save the configuration used
     new_center = 'w_avg' if new_center is None else new_center
     ctx.obj = {
         'network_pkl': network_pkl,
         'seed': seed,
+        'z1, z2': [[int(i), int(j)] for i, j in zip(z1, z2)],
         'truncation_psi': truncation_psi,
         'new_center': new_center,
         'class_idx': class_idx,
@@ -588,6 +585,10 @@ def circular_video(
         'compress': compress
     }
     gen_utils.save_config(ctx=ctx, run_dir=run_dir)
+
+    # Compress the video (lower file size, same resolution)
+    if compress:
+        gen_utils.compress_video(original_video=final_video, original_video_name=mp4_name, outdir=run_dir, ctx=ctx)
 
 # ----------------------------------------------------------------------------
 
