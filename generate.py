@@ -194,6 +194,7 @@ def generate_images(
     # Save the configuration used
     ctx.obj = {
         'network_pkl': network_pkl,
+        'config': cfg,
         'seeds': seeds,
         'truncation_psi': truncation_psi,
         'class_idx': class_idx,
@@ -400,6 +401,7 @@ def random_interpolation_video(
     new_center = 'w_avg' if new_center is None else new_center
     ctx.obj = {
         'network_pkl': network_pkl,
+        'config': cfg,
         'seeds': seeds,
         'truncation_psi': truncation_psi,
         'new_center': new_center,
@@ -570,6 +572,7 @@ def circular_video(
     new_center = 'w_avg' if new_center is None else new_center
     ctx.obj = {
         'network_pkl': network_pkl,
+        'config': cfg,
         'seed': seed,
         'z1, z2': [[int(i), int(j)] for i, j in zip(z1, z2)],
         'truncation_psi': truncation_psi,
