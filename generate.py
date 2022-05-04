@@ -133,11 +133,12 @@ def generate_images(
         n_digits = int(np.log10(len(ws))) + 1  # number of digits for naming the .jpg images
         if ext == '.npy':
             img = gen_utils.w_to_img(G, ws, noise_mode)[0]
-            PIL.Image.fromarray(img, 'RGB').save(f'{run_dir}/proj.jpg')
+            PIL.Image.fromarray(img, gen_utils.channels_dict[G.synthesis.img_channels]).save(f'{run_dir}/proj.png')
         else:
             for idx, w in enumerate(ws):
                 img = gen_utils.w_to_img(G, w, noise_mode)[0]
-                PIL.Image.fromarray(img, 'RGB').save(f'{run_dir}/proj{idx:0{n_digits}d}.jpg')
+                PIL.Image.fromarray(img,
+                                    gen_utils.channels_dict[G.synthesis.img_channels]).save(f'{run_dir}/proj{idx:0{n_digits}d}.png')
         return
 
     # Labels.
@@ -176,7 +177,8 @@ def generate_images(
         img = gen_utils.w_to_img(G, w, noise_mode)[0]
         if save_grid:
             images.append(img)
-        PIL.Image.fromarray(img, 'RGB').save(os.path.join(run_dir, f'seed{seed}.jpg'))
+        PIL.Image.fromarray(img,
+                            gen_utils.channels_dict[G.synthesis.img_channels]).save(os.path.join(run_dir, f'seed{seed}.png'))
         if save_dlatents:
             np.save(os.path.join(run_dir, f'seed{seed}.npy'), w.unsqueeze(0).cpu().numpy())
 
@@ -185,11 +187,11 @@ def generate_images(
         # We let the function infer the shape of the grid
         if (grid_width, grid_height) == (None, None):
             PIL.Image.fromarray(gen_utils.create_image_grid(np.array(images)),
-                                'RGB').save(os.path.join(run_dir, 'grid.jpg'))
+                                gen_utils.channels_dict[G.synthesis.img_channels]).save(os.path.join(run_dir, 'grid.png'))
         # The user tells the specific shape of the grid, but one value may be None
         else:
             PIL.Image.fromarray(gen_utils.create_image_grid(np.array(images), (grid_width, grid_height)),
-                                'RGB').save(os.path.join(run_dir, 'grid.jpg'))
+                                gen_utils.channels_dict[G.synthesis.img_channels]).save(os.path.join(run_dir, 'grid.png'))
 
     # Save the configuration used
     ctx.obj = {
@@ -384,7 +386,7 @@ def random_interpolation_video(
         images = gen_utils.w_to_img(G, w, noise_mode)
         # Generate the grid for this timestamp
         grid = gen_utils.create_image_grid(images, grid_size)
-        # Grayscale => RGB
+        # moviepy.editor.VideoClip expects 3 channels
         if grid.shape[2] == 1:
             grid = grid.repeat(3, 2)
         return grid
@@ -439,8 +441,8 @@ def random_interpolation_video(
 @click.option('--noise-mode', help='Noise mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
 @click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
 # Video options
-@click.option('--grid-width', '-gw', type=click.IntRange(min=1), help='Video grid width / number of columns', default=None, show_default=True)
-@click.option('--grid-height', '-gh', type=click.IntRange(min=1), help='Video grid height / number of rows', default=None, show_default=True)
+@click.option('--grid-width', '-gw', type=click.IntRange(min=1), help='Video grid width / number of columns', required=True)
+@click.option('--grid-height', '-gh', type=click.IntRange(min=1), help='Video grid height / number of rows', required=True)
 @click.option('--duration-sec', '-sec', type=float, help='Duration length of the video', default=10.0, show_default=True)
 @click.option('--fps', type=click.IntRange(min=1), help='Video FPS.', default=30, show_default=True)
 @click.option('--compress', is_flag=True, help='Add flag to compress the final mp4 file with ffmpeg-python (same resolution, lower file size)')

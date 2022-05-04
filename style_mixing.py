@@ -186,7 +186,8 @@ def generate_style_mix(
     print('Saving image grid...')
     W = G.img_resolution
     H = G.img_resolution
-    canvas = PIL.Image.new('RGB', (W * (len(col_seeds) + 1), H * (len(row_seeds) + 1)), 'black')
+    canvas = PIL.Image.new(gen_utils.channels_dict[G.synthesis.img_channels],  # Handle RGBA case
+                           (W * (len(col_seeds) + 1), H * (len(row_seeds) + 1)), 'black')
     for row_idx, row_seed in enumerate([0] + row_seeds):
         for col_idx, col_seed in enumerate([0] + col_seeds):
             if row_idx == 0 and col_idx == 0:
@@ -196,12 +197,15 @@ def generate_style_mix(
                 key = (col_seed, col_seed)
             if col_idx == 0:
                 key = (row_seed, row_seed)
-            canvas.paste(PIL.Image.fromarray(image_dict[key], 'RGB'), (W * col_idx, H * row_idx))
-    canvas.save(os.path.join(run_dir, f'{grid_name}.jpg'))
+            canvas.paste(PIL.Image.fromarray(image_dict[key],
+                                             gen_utils.channels_dict[G.synthesis.img_channels]),
+                         (W * col_idx, H * row_idx))
+    canvas.save(os.path.join(run_dir, f'{grid_name}.png'))
 
     print('Saving individual images...')
     for (row_seed, col_seed), image in image_dict.items():
-        PIL.Image.fromarray(image, 'RGB').save(os.path.join(run_dir, f'{row_seed}-{col_seed}.jpg'))
+        PIL.Image.fromarray(image,
+                            gen_utils.channels_dict[G.synthesis.img_channels]).save(os.path.join(run_dir, f'{row_seed}-{col_seed}.png'))
 
     # Save the configuration used
     ctx.obj = {

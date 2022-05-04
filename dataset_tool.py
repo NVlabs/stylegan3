@@ -25,6 +25,7 @@ import click
 import numpy as np
 import PIL.Image
 from tqdm import tqdm
+from torch_utils import gen_utils
 
 
 # ----------------------------------------------------------------------------
@@ -100,7 +101,7 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             arch_fname = arch_fname.replace('\\', '/')
             # Adding Pull #39 from Andreas Jansson: https://github.com/NVlabs/stylegan3/pull/39
             try:
-                img = np.array(PIL.Image.open(fname).convert('RGB'))  # Convert grayscale to RGB
+                img = np.array(PIL.Image.open(fname))  # Let PIL handle it
             except Exception as e:
                 sys.stderr.write(f'Failed to read {fname}: {e}')
                 continue
@@ -260,7 +261,7 @@ def make_transform(
         crop = np.min(img.shape[:2])
         img = img[(img.shape[0] - crop) // 2: (img.shape[0] + crop) // 2,
                   (img.shape[1] - crop) // 2: (img.shape[1] + crop) // 2]
-        img = PIL.Image.fromarray(img, 'RGB')
+        img = PIL.Image.fromarray(img, gen_utils.channels_dict[img.shape[2]])
         img = img.resize((width, height), PIL.Image.LANCZOS)
         return np.array(img)
 
@@ -270,7 +271,7 @@ def make_transform(
             return None
 
         img = img[(img.shape[0] - ch) // 2: (img.shape[0] + ch) // 2]
-        img = PIL.Image.fromarray(img, 'RGB')
+        img = PIL.Image.fromarray(img, gen_utils.channels_dict[img.shape[2]])
         img = img.resize((width, height), PIL.Image.LANCZOS)
         img = np.array(img)
 
@@ -283,8 +284,8 @@ def make_transform(
         if img.shape[0] < height or ch < width:
             return None
 
-        img = img[:, (img.shape[1] - ch) // 2: (img.shape[1] + ch) // 2]  # center-crop: [width0, height0, 3] -> [width0, height, 3]
-        img = PIL.Image.fromarray(img, 'RGB')
+        img = img[:, (img.shape[1] - ch) // 2: (img.shape[1] + ch) // 2]  # center-crop: [width0, height0, C] -> [width0, height, C]
+        img = PIL.Image.fromarray(img, gen_utils.channels_dict[img.shape[2]])
         img = img.resize((width, height), PIL.Image.LANCZOS)  # resize: [width0, height, 3] -> [width, height, 3]
         img = np.array(img)
 
@@ -475,8 +476,8 @@ def convert_dataset(
             height = dataset_attrs['height']
             if width != height:
                 error(f'Image dimensions after scale and crop are required to be square.  Got {width}x{height}')
-            if dataset_attrs['channels'] not in [1, 3]:
-                error('Input images must be stored as RGB or grayscale')
+            if dataset_attrs['channels'] not in [1, 3, 4]:
+                error('Input images must be stored as grayscale, RGB, or RGBA')
             if width != 2 ** int(np.floor(np.log2(width))):
                 error('Image width/height after scale and crop are required to be power-of-two')
         elif dataset_attrs != cur_image_attrs:
@@ -484,7 +485,7 @@ def convert_dataset(
             error(f'Image {archive_fname} attributes must be equal across all images of the dataset.  Got:\n' + '\n'.join(err))
 
         # Save the image as an uncompressed PNG.
-        img = PIL.Image.fromarray(img, { 1: 'L', 3: 'RGB' }[channels])
+        img = PIL.Image.fromarray(img, {1: 'L', 3: 'RGB', 4: 'RGBA'}[channels])
         image_bits = io.BytesIO()
         img.save(image_bits, format='png', compress_level=0, optimize=False)
         save_bytes(os.path.join(archive_root_dir, archive_fname), image_bits.getbuffer())

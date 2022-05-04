@@ -14,6 +14,12 @@ import torch
 # ----------------------------------------------------------------------------
 
 
+channels_dict = {1: 'L', 3: 'RGB', 4: 'RGBA'}
+
+
+# ----------------------------------------------------------------------------
+
+
 def create_image_grid(images: np.ndarray, grid_size: Optional[Tuple[int, int]] = None):
     """
     Create a grid with the fed images
@@ -456,7 +462,7 @@ resume_specs = {
 
 # ----------------------------------------------------------------------------
 
-
+# TODO: all of the following functions must work for RGBA images
 def w_to_img(G, dlatents: Union[List[torch.Tensor], torch.Tensor], noise_mode: str = 'const') -> np.ndarray:
     """
     Get an image/np.ndarray from a dlatent W using G and the selected noise_mode. The final shape of the
