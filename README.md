@@ -10,14 +10,18 @@ capabilities (but hopefully not its complexity!).
 
 This repository adds/has the following changes (not yet the complete list):
 
-* Dataset tool
-  * Add `--center-crop-tall`: add vertical black bars to the sides instead, in the same vein as the horizontal bars in
+* ***Dataset tool***
+  * **Add RGBA support**, so revert saving images to `.png` ([Issue #156](https://github.com/NVlabs/stylegan3/issues/156) by @1378dm). Training can use RGBA and images can be generated.
+    * ***TODO:*** Check that training code is correct for normalizing the alpha channel, as well as making the 
+      interpolation code work with this new format (look into [`moviepy.editor.VideoClip`](https://zulko.github.io/moviepy/getting_started/videoclips.html?highlight=mask#mask-clips))
+  * **Add `--center-crop-tall`**: add vertical black bars to the sides instead, in the same vein as the horizontal bars in
     `--center-crop-wide`.
-  * Grayscale images in the dataset are converted to `RGB`.
+  * Grayscale images in the dataset are converted to `RGB`
+    * If you want to turn this off, remove the
   * If the dataset tool encounters an error, print it along the offending image, but continue with the rest of the dataset 
     ([PR #39](https://github.com/NVlabs/stylegan3/pull/39) from [Andreas Jansson](https://github.com/andreasjansson)). 
   * ***TODO:*** Add multi-crop, as used in [Earth View](https://github.com/PDillis/earthview#multi-crop---data_augmentpy).
-* Training
+* ***Training***
   * `--mirrory`: Added vertical mirroring for doubling the dataset size (quadrupling if `--mirror` is used; make sure your dataset has either or both 
     of these symmetries in order for it to make sense to use them)
   * `--gamma`: If no R1 regularization is provided, the heuristic formula from [StyleGAN2](https://github.com/NVlabs/stylegan2) will be used.
@@ -111,23 +115,24 @@ This repository adds/has the following changes (not yet the complete list):
       [Wombo Dream](https://www.wombo.art/) [-based models](https://github.com/edstoica/lucid_stylegan3_datasets_models). Others can be found around the net and are properly credited in this repository,
       so long as they can be easily downloaded with [`dnnlib.util.open_url`](https://github.com/PDillis/stylegan3-fun/blob/4ce9d6f7601641ba1e2906ed97f2739a63fb96e2/dnnlib/util.py#L396).
 
-* Interpolation videos
+* ***Interpolation videos***
     * [Random interpolation](https://youtu.be/DNfocO1IOUE)
     * Style-mixing
     * Sightseeding
     * [Circular interpolation](https://youtu.be/4nktYGjSVHg)
     * [Visual-reactive interpolation](https://youtu.be/KoEAkPnE-zA) (Beta)
     * Audiovisual-reactive interpolation (TODO)
-* Projection into the latent space
+    * ***TODO:*** Give support to RGBA models!
+* ***Projection into the latent space***
     * [Project into W+](https://arxiv.org/abs/1904.03189)
     * Additional losses to use for better projection (e.g., using VGG16 or [CLIP](https://github.com/openai/CLIP))
-* [Discriminator Synthesis](https://arxiv.org/abs/2111.02175) (official code)
+* ***[Discriminator Synthesis](https://arxiv.org/abs/2111.02175)*** (official code)
     * Generate a static image or a [video](https://youtu.be/hEJKWL2VQTE) with a feedback loop
     * Start from a random image (`random` or `perlin`, using [Mathieu Duchesneau's implementation](https://github.com/duchesneaumathieu/pyperlin)) or from an existing one
-* Expansion on GUI/`visualizer.py`
+* ***Expansion on GUI/`visualizer.py`***
     * Added the rest of the affine transformations
     * Added widget for class-conditional models (***TODO:*** mix classes with continuous values for `cls`!)
-* General model and code additions
+* ***General model and code additions***
     * [Multi-modal truncation trick](https://arxiv.org/abs/2202.12211): find the different clusters in your model and use the closest one to your dlatent, in order to increase the fidelity (TODO: finish skeleton implementation)
     * StyleGAN3: anchor the latent space for easier to follow interpolations (thanks to [Rivers Have Wings](https://github.com/crowsonkb) and [nshepperd](https://github.com/nshepperd)).
     * Use CPU instead of GPU if desired (not recommended, but perfectly fine for generating images, whenever the custom CUDA kernels fail to compile).
@@ -147,8 +152,7 @@ This repository adds/has the following changes (not yet the complete list):
   * Generate class labels automatically with dataset structure (subfolders and such)
   * Make it easy to download pretrained models from Drive, otherwise a lot of models can't be used with `dnnlib.util.open_url`
     (e.g., [StyleGAN-Human](https://github.com/stylegan-human/StyleGAN-Human) models)
-
-***TODO:*** Finish documentation for better user experience, add videos/images, code samples, visuals...
+  * Finish documentation for better user experience, add videos/images, code samples, visuals...
 
 ---
 

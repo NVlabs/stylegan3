@@ -102,6 +102,9 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             # Adding Pull #39 from Andreas Jansson: https://github.com/NVlabs/stylegan3/pull/39
             try:
                 img = np.array(PIL.Image.open(fname))  # Let PIL handle it
+                # Convert grayscaled image to RGB
+                if img.mode == 'L':
+                    img = img.convert('RGB')
             except Exception as e:
                 sys.stderr.write(f'Failed to read {fname}: {e}')
                 continue
