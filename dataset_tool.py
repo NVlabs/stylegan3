@@ -101,10 +101,11 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
             arch_fname = arch_fname.replace('\\', '/')
             # Adding Pull #39 from Andreas Jansson: https://github.com/NVlabs/stylegan3/pull/39
             try:
-                img = np.array(PIL.Image.open(fname))  # Let PIL handle it
+                img = PIL.Image.open(fname)  # Let PIL handle the mode
                 # Convert grayscaled image to RGB
                 if img.mode == 'L':
                     img = img.convert('RGB')
+                img = np.array(img)
             except Exception as e:
                 sys.stderr.write(f'Failed to read {fname}: {e}')
                 continue
@@ -137,8 +138,15 @@ def open_image_zip(source, *, max_images: Optional[int]):
         with zipfile.ZipFile(source, mode='r') as z:
             for idx, fname in enumerate(input_images):
                 with z.open(fname, 'r') as file:
-                    img = PIL.Image.open(file) # type: ignore
-                    img = np.array(img)
+                    # Same as above: PR #39 by Andreas Jansson and turn Grayscale to RGB
+                    try:
+                        img = PIL.Image.open(file) # type: ignore
+                        if img.mode == 'L':
+                            img = img.convert('RGB')
+                        img = np.array(img)
+                    except Exception as e:
+                        sys.stderr.write(f'Failed to read {fname}: {e}')
+                        continue
                 yield dict(img=img, label=labels.get(fname))
                 if idx >= max_idx-1:
                     break
