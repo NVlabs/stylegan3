@@ -384,6 +384,8 @@ def random_interpolation_video(
         w = w_avg + (w - w_avg) * truncation_psi
         # Get the images with the new center
         images = gen_utils.w_to_img(G, w, noise_mode)
+        # RGBA -> RGB
+        images = images[:, :, :, :3]
         # Generate the grid for this timestamp
         grid = gen_utils.create_image_grid(images, grid_size)
         # moviepy.editor.VideoClip expects 3 channels
@@ -552,6 +554,8 @@ def circular_video(
         w = w_avg + (dlatents - w_avg) * truncation_psi
         # Get the images
         images = gen_utils.w_to_img(G, w, noise_mode)
+        # RGBA -> RGB
+        images = images[:, :, :, :3]
         # Generate the grid for this timestep
         grid = gen_utils.create_image_grid(images, grid_size)
         # Grayscale => RGB

@@ -37,7 +37,7 @@ def parse_styles(s: str) -> List[int]:
         if el in style_layers_dict:
             nums.extend(style_layers_dict[el])
         else:
-            nums.extend(gen_utils.num_range(el))
+            nums.extend(gen_utils.num_range(el, True))
     # Sanity check: delete repeating numbers and limit values between 0 and 17
     nums = list(set([max(min(x, 17), 0) for x in nums]))
     return nums
@@ -80,7 +80,7 @@ def _parse_cols(s: str, G, device: torch.device, truncation_psi: float) -> List[
             w_el = torch.from_numpy(w_el).to(device)  # torch.tensor
             w = torch.cat((w_el, w))
         else:
-            nums = gen_utils.num_range(el)
+            nums = gen_utils.num_range(el, True)
             for n in nums:
                 w = torch.cat((gen_utils.get_w_from_seed(G, device, n, truncation_psi), w))
     return w
