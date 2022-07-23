@@ -14,6 +14,12 @@ import torch
 # ----------------------------------------------------------------------------
 
 
+channels_dict = {1: 'L', 3: 'RGB', 4: 'RGBA'}
+
+
+# ----------------------------------------------------------------------------
+
+
 def create_image_grid(images: np.ndarray, grid_size: Optional[Tuple[int, int]] = None):
     """
     Create a grid with the fed images
@@ -68,16 +74,15 @@ def parse_fps(fps: Union[str, int]) -> int:
         return 30
 
 
-def num_range(s: str, remove_repeated: bool = True) -> List[int]:
+def num_range(s: str, remove_repeated: bool = False) -> List[int]:
     """
     Extended helper function from the original (original is contained here).
     Accept a comma separated list of numbers 'a,b,c', a range 'a-c', or a combination
     of both 'a,b-c', 'a-b,c', 'a,b-c,d,e-f,...', and return as a list of ints.
     """
-    str_list = s.split(',')
     nums = []
     range_re = re.compile(r'^(\d+)-(\d+)$')
-    for el in str_list:
+    for el in s.split(','):
         match = range_re.match(el)
         if match:
             # Sanity check 1: accept ranges 'a-b' or 'b-a', with a<=b
@@ -303,7 +308,7 @@ def double_slowdown(latents: np.ndarray, duration: float, frames: int) -> Tuple[
 # ----------------------------------------------------------------------------
 
 
-def make_affine_transform(m: torch.Tensor = None,
+def make_affine_transform(m: Union[torch.Tensor, np.ndarray] = None,
                           angle: float = 0.0,
                           translate_x: float = 0.0,
                           translate_y: float = 0.0,
@@ -318,8 +323,10 @@ def make_affine_transform(m: torch.Tensor = None,
     # m is the starting affine transformation matrix (e.g., G.synthesis.input.transform)
     if m is None:
         m = np.eye(3, dtype=np.float64)
-    else:
+    elif isinstance(m, torch.Tensor):
         m = m.cpu().numpy()
+    elif isinstance(m, np.ndarray):
+        pass
     # Remember these are the inverse transformations!
     # Rotation matrix
     rotation_matrix = np.array([[np.cos(angle), np.sin(angle), 0.0],
@@ -330,8 +337,8 @@ def make_affine_transform(m: torch.Tensor = None,
                                    [0.0, 1.0, -translate_y],
                                    [0.0, 0.0, 1.0]], dtype=np.float64)
     # Scale matrix (don't let it go into negative or 0)
-    scale_matrix = np.array([[1. / max(scale_x, 1e-4), 0.0, 0.0],
-                             [0.0, 1. / max(scale_y, 1e-4), 0.0],
+    scale_matrix = np.array([[1. / max(scale_x, 1e-1), 0.0, 0.0],
+                             [0.0, 1. / max(scale_y, 1e-1), 0.0],
                              [0.0, 0.0, 1.0]], dtype=np.float64)
     # Shear matrix
     shear_matrix = np.array([[1.0, -shear_x, 0.0],
@@ -456,7 +463,7 @@ resume_specs = {
 
 # ----------------------------------------------------------------------------
 
-
+# TODO: all of the following functions must work for RGBA images
 def w_to_img(G, dlatents: Union[List[torch.Tensor], torch.Tensor], noise_mode: str = 'const') -> np.ndarray:
     """
     Get an image/np.ndarray from a dlatent W using G and the selected noise_mode. The final shape of the

@@ -17,28 +17,12 @@ import moviepy.editor
 # ----------------------------------------------------------------------------
 
 
-def _parse_seeds(s: str) -> List[int]:
-    """
-    Helper function for parsing seeds. With a, b, c,... as ints, then s can be either:
-        * a comma-separated list of numbers: 'a,b,c,d,...'
-        * a range-like of numbers: 'a-d'
-        * a combination of both: 'a,b,c-d,a-e,f...'
-    The returned list will be the numbers in this range, in order as the user entered
-    them, without deleting repeated values.
-    """
-    nums = gen_utils.num_range(s, False)
-    return nums
-
-
-# ----------------------------------------------------------------------------
-
-
 @click.command()
 @click.pass_context
 @click.option('--network', '-net', 'network_pkl', help='Network pickle filename', required=True)
 @click.option('--cfg', type=click.Choice(['stylegan2', 'stylegan3-t', 'stylegan3-r']), help='Config of the network, used only if you want to use the pretrained models in torch_utils.gen_utils.resume_specs')
 # Synthesis options
-@click.option('--seeds', '-s', type=_parse_seeds, help='List of seeds to visit in order ("a,b,c", "a-b", "a,b-c,d,e-f,a", ...', required=True)
+@click.option('--seeds', '-s', type=gen_utils.num_range, help='List of seeds to visit in order ("a,b,c", "a-b", "a,b-c,d,e-f,a", ...', required=True)
 @click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)')
 @click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
 @click.option('--new-center', type=gen_utils.parse_new_center, help='New center for the W latent space; a seed (int) or a path to a projected dlatent (.npy/.npz)', default=None)

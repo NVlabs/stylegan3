@@ -363,11 +363,15 @@ class AugmentPipe(torch.nn.Module):
             images = images.reshape([batch_size, num_channels, height * width])
             if num_channels == 3:
                 images = C[:, :3, :3] @ images + C[:, :3, 3:]
+            elif num_channels == 4:  # Only augment the RGB channels, as above
+                images_rgb = images[:, :3, :]
+                images_rgb = C[:, :3, :3] @ images_rgb + C[:, :3, 3:]
+                images[:, :3, :] = images_rgb
             elif num_channels == 1:
                 C = C[:, :3, :].mean(dim=1, keepdims=True)
                 images = images * C[:, :, :3].sum(dim=2, keepdims=True) + C[:, :, 3:]
             else:
-                raise ValueError('Image must be RGB (3 channels) or L (1 channel)')
+                raise ValueError('Image must be RGBA (4 channels), RGB (3 channels), or L (1 channel)')
             images = images.reshape([batch_size, num_channels, height, width])
 
         # ----------------------
