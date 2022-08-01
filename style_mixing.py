@@ -37,7 +37,7 @@ def parse_styles(s: str) -> List[int]:
         if el in style_layers_dict:
             nums.extend(style_layers_dict[el])
         else:
-            nums.extend(gen_utils.num_range(el))
+            nums.extend(gen_utils.num_range(el, remove_repeated=True))
     # Sanity check: delete repeating numbers and limit values between 0 and 17
     nums = list(set([max(min(x, 17), 0) for x in nums]))
     return nums
@@ -80,7 +80,7 @@ def _parse_cols(s: str, G, device: torch.device, truncation_psi: float) -> List[
             w_el = torch.from_numpy(w_el).to(device)  # torch.tensor
             w = torch.cat((w_el, w))
         else:
-            nums = gen_utils.num_range(el)
+            nums = gen_utils.num_range(el, remove_repeated=True)
             for n in nums:
                 w = torch.cat((gen_utils.get_w_from_seed(G, device, n, truncation_psi), w))
     return w
@@ -186,7 +186,8 @@ def generate_style_mix(
     print('Saving image grid...')
     W = G.img_resolution
     H = G.img_resolution
-    canvas = PIL.Image.new('RGB', (W * (len(col_seeds) + 1), H * (len(row_seeds) + 1)), 'black')
+    canvas = PIL.Image.new(gen_utils.channels_dict[G.synthesis.img_channels],  # Handle RGBA case
+                           (W * (len(col_seeds) + 1), H * (len(row_seeds) + 1)), 'black')
     for row_idx, row_seed in enumerate([0] + row_seeds):
         for col_idx, col_seed in enumerate([0] + col_seeds):
             if row_idx == 0 and col_idx == 0:
@@ -196,12 +197,15 @@ def generate_style_mix(
                 key = (col_seed, col_seed)
             if col_idx == 0:
                 key = (row_seed, row_seed)
-            canvas.paste(PIL.Image.fromarray(image_dict[key], 'RGB'), (W * col_idx, H * row_idx))
-    canvas.save(os.path.join(run_dir, f'{grid_name}.jpg'))
+            canvas.paste(PIL.Image.fromarray(image_dict[key],
+                                             gen_utils.channels_dict[G.synthesis.img_channels]),
+                         (W * col_idx, H * row_idx))
+    canvas.save(os.path.join(run_dir, f'{grid_name}.png'))
 
     print('Saving individual images...')
     for (row_seed, col_seed), image in image_dict.items():
-        PIL.Image.fromarray(image, 'RGB').save(os.path.join(run_dir, f'{row_seed}-{col_seed}.jpg'))
+        PIL.Image.fromarray(image,
+                            gen_utils.channels_dict[G.synthesis.img_channels]).save(os.path.join(run_dir, f'{row_seed}-{col_seed}.png'))
 
     # Save the configuration used
     ctx.obj = {
