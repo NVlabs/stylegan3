@@ -31,6 +31,7 @@ This repository adds/has the following changes (not yet the complete list):
   * `--freezeD`: Renamed `--freezed` for better readability
   * `--freezeM`: Freeze the first layers of the Mapping Network Gm (`G.mapping`)
   * `--freezeE`: Freeze the embedding layer of the Generator (for class-conditional models)
+  * `--freezeG`: ***TODO:*** Freeze the first layers of the Synthesis Network (`G.synthesis`; less cost to transfer learn, focus on high layers?)
   * `--resume`: All available pre-trained models from NVIDIA (and more) can be used with a simple dictionary, depending on the `--cfg` used.
   For example, if you wish to use StyleGAN3's `config-r`, then set `--cfg=stylegan3-r`. In addition, if you wish to transfer learn from FFHQU at 1024 resolution, set `--resume=ffhqu1024`.
     * The full list of currently available models to transfer learn from (or synthesize new images with) is the following (***TODO:*** add small description of each model, 
@@ -119,7 +120,7 @@ This repository adds/has the following changes (not yet the complete list):
     * [Visual-reactive interpolation](https://youtu.be/KoEAkPnE-zA) (Beta)
     * Audiovisual-reactive interpolation (TODO)
 * Projection into the latent space
-    * [Project into W+](https://arxiv.org/abs/1904.03189)
+    * [Project into $\mathcal{W}+$](https://arxiv.org/abs/1904.03189)
     * Additional losses to use for better projection (e.g., using VGG16 or [CLIP](https://github.com/openai/CLIP))
 * [Discriminator Synthesis](https://arxiv.org/abs/2111.02175) (official code)
     * Generate a static image or a [video](https://youtu.be/hEJKWL2VQTE) with a feedback loop
@@ -132,14 +133,13 @@ This repository adds/has the following changes (not yet the complete list):
     * StyleGAN3: anchor the latent space for easier to follow interpolations (thanks to [Rivers Have Wings](https://github.com/crowsonkb) and [nshepperd](https://github.com/nshepperd)).
     * Use CPU instead of GPU if desired (not recommended, but perfectly fine for generating images, whenever the custom CUDA kernels fail to compile).
     * Add missing dependencies and channels so that the [`conda`](https://docs.conda.io/en/latest/) environment is correctly setup in Windows 
-      (PR's [#111](https://github.com/NVlabs/stylegan3/pull/111) /[#116](https://github.com/NVlabs/stylegan3/pull/116) /[#125](https://github.com/NVlabs/stylegan3/pull/125) and [#80](https://github.com/NVlabs/stylegan3/pull/80) /[#143](https://github.com/NVlabs/stylegan3/pull/143) from the base, respectively)
-      * ***TODO:*** Current state fails to install the CUDA version of PyTorch, so make different files for each OS (Ubuntu/Windows)
+      (PR's [#111](https://github.com/NVlabs/stylegan3/pull/111)/[#125](https://github.com/NVlabs/stylegan3/pull/125) and [#80](https://github.com/NVlabs/stylegan3/pull/80) /[#143](https://github.com/NVlabs/stylegan3/pull/143) from the base, respectively)
     * Use [StyleGAN-NADA](https://github.com/rinongal/StyleGAN-nada) models with any part of the code (Issue [#9](https://github.com/PDillis/stylegan3-fun/issues/9))
       * The StyleGAN-NADA models must first be converted via [Vadim Epstein](https://github.com/eps696) 's conversion code found [here](https://github.com/eps696/stylegan2ada#tweaking-models).
 * ***TODO*** list (this is a long one with more to come, so any help is appreciated):
   * [Generate images/interpolations with the layers of the model](https://twitter.com/makeitrad1/status/1517251876504600576?s=20&t=X5Df8N2gG_zGh5jJLVkvvw)
     * Access the layers via: `renderer.Renderer.run_synthesis_net(net, captuer_layer=layer)`
-  * Multi-modal truncation trick: finish skeleton code, add 
+  * Multi-modal truncation trick: finish skeleton code, add automatic selection of centroid (w.r.t. L2 or LPIPS; user-selected)
   * [PTI](https://github.com/danielroich/PTI) for better inversion
   * [Better sampling](https://arxiv.org/abs/2110.08009)
   * [Progressive growing modules for StyleGAN-XL](https://github.com/autonomousvision/stylegan_xl) to be able to use the pretrained models

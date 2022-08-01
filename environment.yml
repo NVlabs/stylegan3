@@ -23,6 +23,7 @@ dependencies:
     - pyopengl==3.1.5
     - imageio-ffmpeg==0.4.3
     - pyspng
+    - pyperlin  # for Discriminator Synthesis
     - psutil  # PR #125 by @fastflair / #111 by @siddharthksah
     - tensorboard  # PR #125 by @fastflair
     - moviepy==1.0.3

@@ -47,7 +47,7 @@ def main():
 @click.option('--grid-height', '-gh', type=click.IntRange(min=1), help='Grid height (number of rows)', default=None)
 # Extra parameters for saving the results
 @click.option('--save-dlatents', is_flag=True, help='Use flag to save individual dlatents (W) for each individual resulting image')
-@click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out', 'grid'), show_default=True, metavar='DIR')
+@click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out', 'images'), show_default=True, metavar='DIR')
 @click.option('--description', '-desc', type=str, help='Description name for the directory path to save results', default='generate-images', show_default=True)
 def generate_images(
         ctx: click.Context,

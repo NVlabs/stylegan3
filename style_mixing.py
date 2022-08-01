@@ -110,7 +110,7 @@ def main():
 @click.option('--noise-mode', help='Noise mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
 @click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
 # Extra parameters for saving the results
-@click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out', 'grid'), show_default=True, metavar='DIR')
+@click.option('--outdir', type=click.Path(file_okay=False), help='Directory path to save the results', default=os.path.join(os.getcwd(), 'out', 'images'), show_default=True, metavar='DIR')
 @click.option('--description', '-desc', type=str, help='Description name for the directory path to save results', default='', show_default=True)
 def generate_style_mix(
         ctx: click.Context,

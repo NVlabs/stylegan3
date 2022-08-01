@@ -354,8 +354,12 @@ def make_affine_transform(m: torch.Tensor = None,
 def anchor_latent_space(G) -> None:
     # Thanks to @RiversHaveWings and @nshepperd1
     if hasattr(G.synthesis, 'input'):
-        shift = G.synthesis.input.affine(G.mapping.w_avg.unsqueeze(0))
-        G.synthesis.input.affine.bias.data.add_(shift.squeeze(0))
+        # Unconditional models differ by a bit
+        if G.c_dim == 0:
+            shift = G.synthesis.input.affine(G.mapping.w_avg.unsqueeze(0)).squeeze(0)
+        else:
+            shift = G.synthesis.input.affine(G.mapping.w_avg).mean(0)
+        G.synthesis.input.affine.bias.data.add_(shift)
         G.synthesis.input.affine.weight.data.zero_()
 
 
@@ -511,10 +515,16 @@ def get_w_from_file(file: Union[str, os.PathLike], return_ext: bool = False) -> 
     filename, file_extension = os.path.splitext(file)
     assert file_extension in ['.npy', '.npz'], f'"{file}" has wrong file format! Use either ".npy" or ".npz"'
     if file_extension == '.npy':
-        r = (np.load(file), '.npy') if return_ext else np.load(file)
-        return r
-    r = (np.load(file)['w'], '.npz') if return_ext else np.load(file)['w']
-    return r
+        latent = np.load(file)
+        extension = '.npy'
+    elif file_extension == '.npz':
+        latent = np.load(file)['w']
+        extension = '.npz'
+    else:
+        return None
+    if len(latent.shape) == 4:
+        latent = latent[0]
+    return (latent, extension) if return_ext else latent
 
 
 # ----------------------------------------------------------------------------
