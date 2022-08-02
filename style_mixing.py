@@ -76,7 +76,7 @@ def _parse_cols(s: str, G, device: torch.device, truncation_psi: float) -> List[
     w = torch.Tensor().to(device)
     for el in s:
         if os.path.isfile(el):
-            w_el = gen_utils.get_w_from_file(el)  # np.ndarray
+            w_el = gen_utils.get_latent_from_file(el)  # np.ndarray
             w_el = torch.from_numpy(w_el).to(device)  # torch.tensor
             w = torch.cat((w_el, w))
         else:

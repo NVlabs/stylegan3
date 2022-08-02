@@ -26,6 +26,9 @@ dependencies:
     - pyperlin  # for Discriminator Synthesis
     - psutil  # PR #125 by @fastflair / #111 by @siddharthksah
     - tensorboard  # PR #125 by @fastflair
+    - torchvision  # For "Discriminator Synthesis" / discriminator_synthesis.py
+    - pyperlin  # For "Discriminator Synthesis" / discriminator_synthesis.py
+    - sklearn  # For "Self-Distilled StyleGAN" / multimodal_truncation.py
     - moviepy==1.0.3
     - ffmpeg-python==0.2.0
     - scikit-video==1.1.11

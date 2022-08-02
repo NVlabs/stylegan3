@@ -140,13 +140,13 @@ def parse_slowdown(slowdown: Union[str, int]) -> int:
     return max(slowdown, 1)  # Guard against 0.5, 0.25, ... cases
 
 
-def parse_new_center(s: str) -> Tuple[str, Union[int, np.ndarray]]:
+def parse_new_center(s: str) -> Tuple[str, Union[int, Tuple[np.ndarray, Optional[str]]]]:
     """Get a new center for the W latent space (a seed or projected dlatent; to be transformed later)"""
     try:
         new_center = int(s)  # it's a seed
         return s, new_center
     except ValueError:
-        new_center = get_w_from_file(s, return_ext=False)  # it's a projected dlatent
+        new_center = get_latent_from_file(s, return_ext=False)  # it's a projected dlatent
         return s, new_center
 
 
@@ -484,7 +484,7 @@ def w_to_img(G, dlatents: Union[List[torch.Tensor], torch.Tensor], noise_mode: s
     return synth_image
 
 
-def z_to_dlatent(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: float) -> torch.Tensor:
+def z_to_dlatent(G, latents: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
     """
     Get the dlatent from the given latent, class label and truncation psi
     """
@@ -518,18 +518,18 @@ def get_w_from_seed(G, device: torch.device, seed: int, truncation_psi: float) -
     return w
 
 
-def get_w_from_file(file: Union[str, os.PathLike], return_ext: bool = False) -> Tuple[np.ndarray, Optional[str]]:
+def get_latent_from_file(file: Union[str, os.PathLike],
+                    return_ext: bool = False,
+                    named_latent: str = 'w') -> Tuple[np.ndarray, Optional[str]]:
     """Get dlatent (w) from a .npy or .npz file"""
     filename, file_extension = os.path.splitext(file)
-    assert file_extension in ['.npy', '.npz'], f'"{file}" has wrong file format! Use either ".npy" or ".npz"'
+    assert file_extension in ['.npy', '.npz'], f'"{file}" has wrong file format! Only ".npy" or ".npz" are allowed'
     if file_extension == '.npy':
         latent = np.load(file)
         extension = '.npy'
-    elif file_extension == '.npz':
-        latent = np.load(file)['w']
-        extension = '.npz'
     else:
-        return None
+        latent = np.load(file)[named_latent]
+        extension = '.npz'
     if len(latent.shape) == 4:
         latent = latent[0]
     return (latent, extension) if return_ext else latent

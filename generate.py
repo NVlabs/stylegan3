@@ -127,10 +127,10 @@ def generate_images(
         if seeds is not None:
             print('warn: --seeds is ignored when using --projected-w')
         print(f'Generating images from projected W "{projected_w}"')
-        ws, ext = gen_utils.get_w_from_file(projected_w, return_ext=True)
+        ws, ext = gen_utils.get_latent_from_file(projected_w, return_ext=True)
         ws = torch.tensor(ws, device=device)
         assert ws.shape[1:] == (G.num_ws, G.w_dim)
-        n_digits = int(np.log10(len(ws))) + 1  # number of digits for naming the .jpg images
+        n_digits = int(np.log10(len(ws))) + 1  # number of digits for naming the images
         if ext == '.npy':
             img = gen_utils.w_to_img(G, ws, noise_mode)[0]
             PIL.Image.fromarray(img, gen_utils.channels_dict[G.synthesis.img_channels]).save(f'{run_dir}/proj.png')

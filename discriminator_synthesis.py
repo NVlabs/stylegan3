@@ -111,7 +111,7 @@ def crop_resize_rotate(img: PIL.Image.Image,
     # Rotation and translation
     if rotation_deg is not None:
         img = img.rotate(angle=rotation_deg,                    # Angle to rotate image, counter-clockwise
-                         resample=PIL.Image.BICUBIC,            # Resampling filter; options: [PIL.Image.NEAREST | PIL.Image.BILINEAR | PIL.Image.BICUBIC]
+                         resample=Image.BICUBIC,                # Resampling filter; options: Image.Resampling.{NEAREST, BILINEAR, BICUBIC}
                          expand=False,                          # If True, the whole rotated image will be shown
                          translate=(translate_x, translate_y),  # Translate the image, from top-left corner (post-rotation)
                          fillcolor=(0, 0, 0))                   # Black background
