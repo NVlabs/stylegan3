@@ -155,6 +155,7 @@ def convert_tf_generator(tf_G):
     kwarg('structure')
     kwarg('conditioning')
     kwarg('fused_modconv')
+    kwarg('randomize_noise')  # PR #173 by @cobanov, for StyleGAN2 models/TF 1.15
     unknown_kwargs = list(set(tf_kwargs.keys()) - known_kwargs)
     if len(unknown_kwargs) > 0:
         raise ValueError('Unknown TensorFlow kwarg', unknown_kwargs[0])
