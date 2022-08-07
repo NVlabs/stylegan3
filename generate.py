@@ -209,7 +209,7 @@ def generate_images(
         if layer_name is not None:
             # Sanity check (meh, could be done better)
             submodule_names = {name: mod for name, mod in G.synthesis.named_modules()}
-            assert layer_name in submodule_names, f'Layer "{layer_name}" not found in the network! Available layers: {submodule_names}'
+            assert layer_name in submodule_names, f'Layer "{layer_name}" not found in the network! Available layers: {", ".join(submodule_names)}'
             assert True in (save_grayscale, save_rgb, save_rgba), 'You must select to save the image in at least one of the three possible formats! (L, RGB, RGBA)'
 
             sel_channels = 3 if save_rgb else (1 if save_grayscale else 4)
@@ -251,17 +251,36 @@ def generate_images(
     # Save the configuration used
     ctx.obj = {
         'network_pkl': network_pkl,
+        'device': device,
         'config': cfg,
-        'seeds': seeds,
-        'truncation_psi': truncation_psi,
-        'class_idx': class_idx,
-        'noise_mode': noise_mode,
-        'save_grid': save_grid,
-        'grid_width': grid_width,
-        'grid_height': grid_height,
-        'run_dir': run_dir,
-        'description': description,
-        'projected_w': projected_w
+        'synthesis': {
+            'seeds': seeds,
+            'truncation_psi': truncation_psi,
+            'class_idx': class_idx,
+            'noise_mode': noise_mode,
+            'anchor_latent_space': anchor_latent_space,
+            'projected_w': projected_w,
+            'new_center': new_center
+        },
+        'intermediate_representations': {
+            'layer': layer_name,
+            'starting_channel': starting_channel,
+            'grayscale': save_grayscale,
+            'rgb': save_rgb,
+            'rgba': save_rgba,
+            'img_scale_db': img_scale_db,
+            'img_normalize': img_normalize
+        },
+        'grid_options': {
+            'save_grid': save_grid,
+            'grid_width': grid_width,
+            'grid_height': grid_height,
+        },
+        'extra_parameters': {
+            'save_dlatents': save_dlatents,
+            'run_dir': run_dir,
+            'description': description,
+        }
     }
     gen_utils.save_config(ctx=ctx, run_dir=run_dir)
 
@@ -474,7 +493,7 @@ def random_interpolation_video(
         if layer_name is not None:
             # Sanity check (again, could be done better)
             submodule_names = {name: mod for name, mod in G.synthesis.named_modules()}
-            assert layer_name in submodule_names, f'Layer "{layer_name}" not found in the network! Available layers: {submodule_names}'
+            assert layer_name in submodule_names, f'Layer "{layer_name}" not found in the network! Available layers: {", ".join(submodule_names)}'
             assert True in (save_grayscale, save_rgb), 'You must select to save the video in at least one of the two possible formats! (L, RGB)'
 
             sel_channels = 3 if save_rgb else 1
@@ -509,20 +528,35 @@ def random_interpolation_video(
     ctx.obj = {
         'network_pkl': network_pkl,
         'config': cfg,
-        'seeds': seeds,
-        'truncation_psi': truncation_psi,
-        'new_center': new_center,
-        'class_idx': class_idx,
-        'noise_mode': noise_mode,
-        'grid_width': grid_width,
-        'grid_height': grid_height,
-        'slowdown': slowdown,
-        'duration_sec': duration_sec,
-        'video_fps': fps,
-        'run_dir': run_dir,
-        'description': desc,
-        'compress': compress,
-        'smoothing_sec': smoothing_sec
+        'synthesis_options': {
+            'seeds': seeds,
+            'truncation_psi': truncation_psi,
+            'new_center': new_center,
+            'class_idx': class_idx,
+            'noise_mode': noise_mode,
+            'anchor_latent_space': anchor_latent_space
+        },
+        'intermediate_representations': {
+            'layer': layer_name,
+            'starting_channel': starting_channel,
+            'grayscale': save_grayscale,
+            'rgb': save_rgb,
+            'img_scale_db': img_scale_db,
+            'img_normalize': img_normalize
+        },
+        'video_options': {
+            'grid_width': grid_width,
+            'grid_height': grid_height,
+            'slowdown': slowdown,
+            'duration_sec': duration_sec,
+            'video_fps': fps,
+            'compress': compress,
+            'smoothing_sec': smoothing_sec
+        },
+        'extra_parameters': {
+            'run_dir': run_dir,
+            'description': desc
+        }
     }
     gen_utils.save_config(ctx=ctx, run_dir=run_dir)
 
