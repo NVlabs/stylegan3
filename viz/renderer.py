@@ -222,7 +222,10 @@ class Renderer:
         return x
 
     def _render_impl(self, res,
+        G               = None,
         pkl             = None,
+        dlatent         = None,
+        available_layers = None,
         w0_seeds        = [[0, 1]],
         cls             = 0,
         stylemix_idx    = [],
@@ -245,7 +248,8 @@ class Renderer:
         untransform     = False,
     ):
         # Dig up network details.
-        G = self.get_network(pkl, 'G_ema')
+        if G is None:
+            G = self.get_network(pkl, 'G_ema')
         res.img_resolution = G.img_resolution
         res.num_ws = G.num_ws
         res.has_noise = any('noise_const' in name for name, _buf in G.synthesis.named_buffers())
@@ -263,35 +267,43 @@ class Renderer:
                 res.error = CapturedException()
             G.synthesis.input.transform.copy_(torch.from_numpy(m))
 
+        if dlatent is not None:
+            w = dlatent
         # Generate random latents.
-        all_seeds = [seed for seed, _weight in w0_seeds] + [stylemix_seed]
-        all_seeds = list(set(all_seeds))
-        all_zs = np.zeros([len(all_seeds), G.z_dim], dtype=np.float32)
-        all_cs = np.zeros([len(all_seeds), G.c_dim], dtype=np.float32) # TODO: mix classes!
-        for idx, seed in enumerate(all_seeds):
-            rnd = np.random.RandomState(seed)
-            all_zs[idx] = rnd.randn(G.z_dim)
-            if res.is_conditional:
-                all_cs[idx, cls] = 1  # Thanks to @jasony93: https://github.com/NVlabs/stylegan3/issues/131
+        else:
+            all_seeds = [seed for seed, _weight in w0_seeds] + [stylemix_seed]
+            all_seeds = list(set(all_seeds))
+            all_zs = np.zeros([len(all_seeds), G.z_dim], dtype=np.float32)
+            all_cs = np.zeros([len(all_seeds), G.c_dim], dtype=np.float32) # TODO: mix classes!
+            for idx, seed in enumerate(all_seeds):
+                rnd = np.random.RandomState(seed)
+                all_zs[idx] = rnd.randn(G.z_dim)
+                if res.is_conditional:
+                    all_cs[idx, cls] = 1  # Thanks to @jasony93: https://github.com/NVlabs/stylegan3/issues/131
 
-        # Run mapping network.
-        w_avg = G.mapping.w_avg
-        all_zs = self.to_device(torch.from_numpy(all_zs))
-        all_cs = self.to_device(torch.from_numpy(all_cs))
-        all_ws = G.mapping(z=all_zs, c=all_cs, truncation_psi=trunc_psi, truncation_cutoff=trunc_cutoff) - w_avg
-        all_ws = dict(zip(all_seeds, all_ws))
+            # Run mapping network.
+            w_avg = G.mapping.w_avg
+            all_zs = self.to_device(torch.from_numpy(all_zs))
+            all_cs = self.to_device(torch.from_numpy(all_cs))
+            all_ws = G.mapping(z=all_zs, c=all_cs, truncation_psi=trunc_psi, truncation_cutoff=trunc_cutoff) - w_avg
+            all_ws = dict(zip(all_seeds, all_ws))
 
-        # Calculate final W.
-        w = torch.stack([all_ws[seed] * weight for seed, weight in w0_seeds]).sum(dim=0, keepdim=True)
-        stylemix_idx = [idx for idx in stylemix_idx if 0 <= idx < G.num_ws]
-        if len(stylemix_idx) > 0:
-            w[:, stylemix_idx] = all_ws[stylemix_seed][np.newaxis, stylemix_idx]
-        w += w_avg
+            # Calculate final W.
+            w = torch.stack([all_ws[seed] * weight for seed, weight in w0_seeds]).sum(dim=0, keepdim=True)
+            stylemix_idx = [idx for idx in stylemix_idx if 0 <= idx < G.num_ws]
+            if len(stylemix_idx) > 0:
+                w[:, stylemix_idx] = all_ws[stylemix_seed][np.newaxis, stylemix_idx]
+            w += w_avg
 
         # Run synthesis network.
         synthesis_kwargs = dnnlib.EasyDict(noise_mode=noise_mode, force_fp32=force_fp32)
         torch.manual_seed(random_seed)
         out, layers = self.run_synthesis_net(G.synthesis, w, capture_layer=layer_name, **synthesis_kwargs)
+
+        # Print layer details.
+        if available_layers:
+            for layer in layers:
+                print(f'Name: {layer["name"]} => Channels: {layer["shape"][1]} => Size: {layer["shape"][2:]}')
 
         # Update layer list.
         cache_key = (G.synthesis, tuple(sorted(synthesis_kwargs.items())))

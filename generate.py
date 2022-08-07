@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import List, Optional, Union, Tuple
 import click
 
@@ -11,6 +12,7 @@ import PIL.Image
 import torch
 
 import legacy
+from viz.renderer import Renderer
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
 import moviepy.editor
@@ -41,6 +43,15 @@ def main():
 @click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
 @click.option('--projected-w', help='Projection result file; can be either .npy or .npz files', type=click.Path(exists=True, dir_okay=False), metavar='FILE')
 @click.option('--new-center', type=gen_utils.parse_new_center, help='New center for the W latent space; a seed (int) or a path to a projected dlatent (.npy/.npz)', default=None)
+# Save the output of the intermediate layers
+@click.option('--layer', 'layer_name', type=str, help='Layer name to extract; if unsure, use `--available-layers`', default=None, show_default=True)
+@click.option('--available-layers', is_flag=True, help='List the available layers in the trained model and exit')
+@click.option('--starting-channel', 'starting_channel', type=int, help='Starting channel for the layer extraction', default=0, show_default=True)
+@click.option('--grayscale', 'save_grayscale', type=bool, help='Use the first channel starting from `--starting-channel` to generate a grayscale image.', default=False, show_default=True)
+@click.option('--rgb', 'save_rgb', type=bool, help='Use 3 consecutive channels (if they exist) to generate a RGB image, starting from `--starting-channel`.', default=False, show_default=True)
+@click.option('--rgba', 'save_rgba', type=bool, help='Use 4 consecutive channels (if they exist) to generate a RGBA image, starting from `--starting-channel`.', default=False, show_default=True)
+@click.option('--img-scale-db', 'img_scale_db', type=click.FloatRange(min=-40, max=40), help='Scale the image pixel values, akin to "exposure" (lower, the image is grayer/, higher the more white/burnt regions)', default=0, show_default=True)
+@click.option('--img-normalize', 'img_normalize', type=bool, help='Normalize images of the selected layer and channel', default=False, show_default=True)
 # Grid options
 @click.option('--save-grid', is_flag=True, help='Use flag to save image grid')
 @click.option('--grid-width', '-gw', type=click.IntRange(min=1), help='Grid width (number of columns)', default=None)
@@ -61,6 +72,14 @@ def generate_images(
         anchor_latent_space: Optional[bool],
         projected_w: Optional[Union[str, os.PathLike]],
         new_center: Tuple[str, Union[int, np.ndarray]],
+        layer_name: Optional[str],
+        available_layers: Optional[bool],
+        starting_channel: Optional[int],
+        save_grayscale: Optional[bool],
+        save_rgb: Optional[bool],
+        save_rgba: Optional[bool],
+        img_scale_db: Optional[float],
+        img_normalize: Optional[bool],
         save_grid: Optional[bool],
         grid_width: int,
         grid_height: int,
@@ -97,6 +116,10 @@ def generate_images(
     python generate.py images --cfg=stylegan2 --network=wikiart1024-C --class=155 \\
         --trunc=0.7 --seeds=10-50 --save-grid
     """
+    # Sanity check
+    if len(seeds) < 1:
+        ctx.fail('Use `--seeds` to specify at least one seed.')
+
     # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
     try:
         network_pkl = gen_utils.resume_specs[cfg][network_pkl]
@@ -110,6 +133,11 @@ def generate_images(
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
 
+    if available_layers:
+        click.secho(f'Printing available layers (name, channels and size) for "{network_pkl}"...', fg='blue')
+        _ = Renderer().render(G=G, available_layers=available_layers)
+        sys.exit(1)
+
     # Setup for using CPU
     if device.type == 'cpu':
         gen_utils.use_cpu(G)
@@ -119,6 +147,7 @@ def generate_images(
         gen_utils.anchor_latent_space(G)
 
     description = 'generate-images' if len(description) == 0 else description
+    description = f'{description}-{layer_name}_layer' if layer_name is not None else description
     # Create the run dir with the given name description
     run_dir = gen_utils.make_run_dir(outdir, description)
 
@@ -174,24 +203,50 @@ def generate_images(
         dlatent = gen_utils.get_w_from_seed(G, device, seed, truncation_psi=1.0)
         # Do truncation trick with center (new or global)
         w = w_avg + (dlatent - w_avg) * truncation_psi
-        img = gen_utils.w_to_img(G, w, noise_mode)[0]
+
+        # TODO: this is starting to look like an auxiliary function!
+        # Save the intermediate layer output.
+        if layer_name is not None:
+            # Sanity check (meh, could be done better)
+            submodule_names = {name: mod for name, mod in G.synthesis.named_modules()}
+            assert layer_name in submodule_names, f'Layer "{layer_name}" not found in the network! Available layers: {submodule_names}'
+            assert True in (save_grayscale, save_rgb, save_rgba), 'You must select to save the image in at least one of the three possible formats! (L, RGB, RGBA)'
+
+            sel_channels = 3 if save_rgb else (1 if save_grayscale else 4)
+            res = Renderer().render(G=G, layer_name=layer_name, dlatent=w, sel_channels=sel_channels,
+                                    base_channel=starting_channel, img_scale_db=img_scale_db, img_normalize=img_normalize)
+            img = res.image
+        else:
+            img = gen_utils.w_to_img(G, w, noise_mode)[0]
+
         if save_grid:
             images.append(img)
-        PIL.Image.fromarray(img,
-                            gen_utils.channels_dict[G.synthesis.img_channels]).save(os.path.join(run_dir, f'seed{seed}.png'))
+
+        # Get the image format, whether user-specified or the one from the model
+        try:
+            img_format = gen_utils.channels_dict[sel_channels]
+        except NameError:
+            img_format = gen_utils.channels_dict[G.synthesis.img_channels]
+
+        # Save image, avoiding grayscale errors in PIL
+        PIL.Image.fromarray(img[:, :, 0] if img.shape[-1] == 1 else img,
+                            img_format).save(os.path.join(run_dir, f'seed{seed}.png'))
         if save_dlatents:
             np.save(os.path.join(run_dir, f'seed{seed}.npy'), w.unsqueeze(0).cpu().numpy())
 
     if save_grid:
         print('Saving image grid...')
+        images = np.array(images)
+
         # We let the function infer the shape of the grid
         if (grid_width, grid_height) == (None, None):
-            PIL.Image.fromarray(gen_utils.create_image_grid(np.array(images)),
-                                gen_utils.channels_dict[G.synthesis.img_channels]).save(os.path.join(run_dir, 'grid.png'))
+            grid = gen_utils.create_image_grid(images)
         # The user tells the specific shape of the grid, but one value may be None
         else:
-            PIL.Image.fromarray(gen_utils.create_image_grid(np.array(images), (grid_width, grid_height)),
-                                gen_utils.channels_dict[G.synthesis.img_channels]).save(os.path.join(run_dir, 'grid.png'))
+            grid = gen_utils.create_image_grid(images, (grid_width, grid_height))
+
+        grid = grid[:, :, 0] if grid.shape[-1] == 1 else grid
+        PIL.Image.fromarray(grid, img_format).save(os.path.join(run_dir, 'grid.png'))
 
     # Save the configuration used
     ctx.obj = {
@@ -225,6 +280,14 @@ def generate_images(
 @click.option('--class', 'class_idx', type=int, help='Class label (unconditional if not specified)')
 @click.option('--noise-mode', help='Noise mode', type=click.Choice(['const', 'random', 'none']), default='const', show_default=True)
 @click.option('--anchor-latent-space', '-anchor', is_flag=True, help='Anchor the latent space to w_avg to stabilize the video')
+# Save the output of the intermediate layers
+@click.option('--layer', 'layer_name', type=str, help='Layer name to extract; if unsure, use `--available-layers`', default=None, show_default=True)
+@click.option('--available-layers', is_flag=True, help='List the available layers in the trained model and exit')
+@click.option('--starting-channel', 'starting_channel', type=int, help='Starting channel for the layer extraction', default=0, show_default=True)
+@click.option('--grayscale', 'save_grayscale', type=bool, help='Use the first channel starting from `--starting-channel` to generate a grayscale image.', default=False, show_default=True)
+@click.option('--rgb', 'save_rgb', type=bool, help='Use 3 consecutive channels (if they exist) to generate a RGB image, starting from `--starting-channel`.', default=False, show_default=True)
+@click.option('--img-scale-db', 'img_scale_db', type=click.FloatRange(min=-40, max=40), help='Scale the image pixel values, akin to "exposure" (lower, the image is grayer/, higher the more white/burnt regions)', default=0, show_default=True)
+@click.option('--img-normalize', 'img_normalize', type=bool, help='Normalize images of the selected layer and channel', default=False, show_default=True)
 # Video options
 @click.option('--grid-width', '-gw', type=click.IntRange(min=1), help='Video grid width / number of columns', default=None, show_default=True)
 @click.option('--grid-height', '-gh', type=click.IntRange(min=1), help='Video grid height / number of rows', default=None, show_default=True)
@@ -245,6 +308,13 @@ def random_interpolation_video(
         class_idx: Optional[int],
         noise_mode: str,
         anchor_latent_space: bool,
+        layer_name: Optional[str],
+        available_layers: Optional[bool],
+        starting_channel: Optional[int],
+        save_grayscale: Optional[bool],
+        save_rgb: Optional[bool],
+        img_scale_db: Optional[float],
+        img_normalize: Optional[bool],
         grid_width: int,
         grid_height: int,
         slowdown: int,
@@ -271,6 +341,9 @@ def random_interpolation_video(
         --fps=60 -sec=60 --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metfaces.pkl
 
     """
+    # Sanity check
+    if len(seeds) < 1:
+        ctx.fail('Use `--seeds` to specify at least one seed.')
     # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
     try:
         network_pkl = gen_utils.resume_specs[cfg][network_pkl]
@@ -284,6 +357,17 @@ def random_interpolation_video(
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
 
+    # Print the available layers in the model
+    if available_layers:
+        click.secho(f'Printing available layers (name, channels and size) for "{network_pkl}"...', fg='blue')
+        _ = Renderer().render(G=G, available_layers=available_layers)
+        sys.exit(1)
+
+    # Sadly, render can only generate one image at a time, so for now we'll just use the first seed
+    if layer_name is not None:
+        print(f'Note: Only one seed is supported for layer extraction, using seed {seeds[0]}...')
+        seeds = seeds[:1]
+
     # Stabilize/anchor the latent space
     if anchor_latent_space:
         gen_utils.anchor_latent_space(G)
@@ -292,6 +376,7 @@ def random_interpolation_video(
     desc = 'random-video'
     desc = f'random-video-{description}' if description is not None else desc
     desc = f'{desc}-{slowdown}xslowdown' if slowdown != 1 else desc
+    desc = f'{desc}-{layer_name}_layer' if layer_name is not None else desc
     run_dir = gen_utils.make_run_dir(outdir, desc)
 
     # Number of frames in the video and its total duration in seconds
@@ -382,10 +467,26 @@ def random_interpolation_video(
         # Do the truncation trick (with the global centroid or the new center provided by the user)
         w = G.mapping(latents, None)
         w = w_avg + (w - w_avg) * truncation_psi
-        # Get the images with the new center
-        images = gen_utils.w_to_img(G, w, noise_mode)
-        # RGBA -> RGB
-        images = images[:, :, :, :3]
+
+        # Get the images
+
+        # Save the intermediate layer output.
+        if layer_name is not None:
+            # Sanity check (again, could be done better)
+            submodule_names = {name: mod for name, mod in G.synthesis.named_modules()}
+            assert layer_name in submodule_names, f'Layer "{layer_name}" not found in the network! Available layers: {submodule_names}'
+            assert True in (save_grayscale, save_rgb), 'You must select to save the video in at least one of the two possible formats! (L, RGB)'
+
+            sel_channels = 3 if save_rgb else 1
+            res = Renderer().render(G=G, layer_name=layer_name, dlatent=w, sel_channels=sel_channels,
+                                    base_channel=starting_channel, img_scale_db=img_scale_db, img_normalize=img_normalize)
+            images = res.image
+            images = np.expand_dims(np.array(images), axis=0)
+        else:
+            images = gen_utils.w_to_img(G, w, noise_mode)  # Remember, it can only be a single image
+            # RGBA -> RGB, if necessary
+            images = images[:, :, :, :3]
+
         # Generate the grid for this timestamp
         grid = gen_utils.create_image_grid(images, grid_size)
         # moviepy.editor.VideoClip expects 3 channels
@@ -396,6 +497,8 @@ def random_interpolation_video(
     # Generate video using the respective make_frame function
     videoclip = moviepy.editor.VideoClip(make_frame, duration=duration_sec)
     videoclip.set_duration(total_duration)
+
+    mp4_name = f'{mp4_name}_{layer_name}' if layer_name is not None else mp4_name
 
     # Change the video parameters (codec, bitrate) if you so desire
     final_video = os.path.join(run_dir, f'{mp4_name}.mp4')

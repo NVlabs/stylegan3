@@ -8,12 +8,15 @@ of being backwards-compatible. As such, we can use our previously-trained models
 get acquainted with the official repository and its codebase, as we will be building upon it and as such, increase its
 capabilities (but hopefully not its complexity!). 
 
+## Additions
+
 This repository adds/has the following changes (not yet the complete list):
 
 * ***Dataset tool***
   * **Add RGBA support**, so revert saving images to `.png` ([Issue #156](https://github.com/NVlabs/stylegan3/issues/156) by @1378dm). Training can use RGBA and images can be generated.
-    * ***TODO:*** Check that training code is correct for normalizing the alpha channel, as well as making the 
+    * ***TODO:*** ~~Check that training code is correct for normalizing the alpha channel~~, as well as making the 
       interpolation code work with this new format (look into [`moviepy.editor.VideoClip`](https://zulko.github.io/moviepy/getting_started/videoclips.html?highlight=mask#mask-clips))
+    * For now, interpolations will only be saved in RGB format.
   * **Add `--center-crop-tall`**: add vertical black bars to the sides instead, in the same vein as the horizontal bars in
     `--center-crop-wide`.
   * Grayscale images in the dataset are converted to `RGB`
@@ -118,15 +121,19 @@ This repository adds/has the following changes (not yet the complete list):
 
 * ***Interpolation videos***
     * [Random interpolation](https://youtu.be/DNfocO1IOUE)
+      * [Generate images/interpolations with the internal representations of the model](https://nvlabs-fi-cdn.nvidia.com/_web/stylegan3/videos/video_8_internal_activations.mp4)
+        * Usage: Add `--layer=<layer_name>` to specify which layer to use for interpolation.
+        * If you don't know the names of the layers available for your model, add the flag `--available-layers` and the 
+        layers will be printed to the console, along their names, number of channels, and sizes. 
+        * Use one of `--grayscale` or `--rgb` to specify whether to save the images as grayscale or RGB during the interpolation.
+        * For `--rgb`, three consecutive channels (starting at `--starting-channel=0`) will be used to create the RGB image. For `--grayscale`, only the first channel will be used.
     * Style-mixing
-    * Sightseeding
+    * [Sightseeding](https://twitter.com/PDillis/status/1270341433401249793?s=20&t=yLueNkagqsidZFqZ2jNPAw) (jumpiness has been fixed)
     * [Circular interpolation](https://youtu.be/4nktYGjSVHg)
     * [Visual-reactive interpolation](https://youtu.be/KoEAkPnE-zA) (Beta)
     * Audiovisual-reactive interpolation (TODO)
     * ***TODO:*** Give support to RGBA models!
 * ***Projection into the latent space***
-    * [Project into W+](https://arxiv.org/abs/1904.03189)
-* Projection into the latent space
     * [Project into $\mathcal{W}+$](https://arxiv.org/abs/1904.03189)
     * Additional losses to use for better projection (e.g., using VGG16 or [CLIP](https://github.com/openai/CLIP))
 * ***[Discriminator Synthesis](https://arxiv.org/abs/2111.02175)*** (official code)
@@ -143,9 +150,8 @@ This repository adds/has the following changes (not yet the complete list):
       (PR's [#111](https://github.com/NVlabs/stylegan3/pull/111)/[#125](https://github.com/NVlabs/stylegan3/pull/125) and [#80](https://github.com/NVlabs/stylegan3/pull/80) /[#143](https://github.com/NVlabs/stylegan3/pull/143) from the base, respectively)
     * Use [StyleGAN-NADA](https://github.com/rinongal/StyleGAN-nada) models with any part of the code (Issue [#9](https://github.com/PDillis/stylegan3-fun/issues/9))
       * The StyleGAN-NADA models must first be converted via [Vadim Epstein](https://github.com/eps696) 's conversion code found [here](https://github.com/eps696/stylegan2ada#tweaking-models).
+    * Add PR [#173](https://github.com/NVlabs/stylegan3/pull/173) for adding the last remaining unknown kwarg for using StyleGAN2 models using TF 1.15.
 * ***TODO*** list (this is a long one with more to come, so any help is appreciated):
-  * [Generate images/interpolations with the layers of the model](https://twitter.com/makeitrad1/status/1517251876504600576?s=20&t=X5Df8N2gG_zGh5jJLVkvvw)
-    * Access the layers via: `renderer.Renderer.run_synthesis_net(net, captuer_layer=layer)`
   * Multi-modal truncation trick: finish skeleton code, add automatic selection of centroid (w.r.t. L2 or LPIPS; user-selected)
   * [PTI](https://github.com/danielroich/PTI) for better inversion
   * [Better sampling](https://arxiv.org/abs/2110.08009)
@@ -155,6 +161,19 @@ This repository adds/has the following changes (not yet the complete list):
   * Make it easy to download pretrained models from Drive, otherwise a lot of models can't be used with `dnnlib.util.open_url`
     (e.g., [StyleGAN-Human](https://github.com/stylegan-human/StyleGAN-Human) models)
   * Finish documentation for better user experience, add videos/images, code samples, visuals...
+
+## Notebooks (Coming soon!)
+
+## Sponsors ![GitHub Sponsor](https://img.shields.io/github/sponsors/PDillis?label=Sponsor&logo=GitHub)
+
+This repository is sponsored by:
+
+[isosceles](https://www.jasonfletcher.info/vjloops/)
+
+Thank you so much! 
+
+If you wish to sponsor me, click here: [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/PDillis)
+
 
 ---
 
