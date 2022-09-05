@@ -4,8 +4,9 @@ from torchvision import models
 
 import numpy as np
 
-from typing import List
+from typing import List, Tuple
 from collections import OrderedDict
+import operator
 
 
 # ----------------------------------------------------------------------------
@@ -182,27 +183,28 @@ class DiscriminatorFeatures(torch.nn.Module):
         # For loop to get all the inner features of the trained Discriminator with a resnet architecture
         for res in self.block_resolutions:
             if res == D.img_resolution:
-                setattr(self, 'from_rgb', eval(f'D.b{res}.fromrgb'))
-            setattr(self, f'b{res}_skip', eval(f'D.b{res}.skip'))
-            setattr(self, f'b{res}_conv0', eval(f'D.b{res}.conv0'))
-            setattr(self, f'b{res}_conv1', eval(f'D.b{res}.conv1'))
+                setattr(self, 'from_rgb', operator.attrgetter(f'b{res}.fromrgb')(D))
+            setattr(self, f'b{res}_skip', operator.attrgetter(f'b{res}.skip')(D))
+            setattr(self, f'b{res}_conv0', operator.attrgetter(f'b{res}.conv0')(D))
+            setattr(self, f'b{res}_conv1', operator.attrgetter(f'b{res}.conv1')(D))
 
         # Unique, last block with a fc/out, so we can extract features in a regular fashion
-        self.b4_mbstd = D.b4.mbstd
-        self.b4_conv = D.b4.conv
-        self.adavgpool = nn.AdaptiveAvgPool2d(4)  # Necessary if images are of different resolution than D.img_resolution
-        self.fc = D.b4.fc
-        self.out = D.b4.out
+        setattr(self, 'b4_mbstd', D.b4.mbstd)
+        setattr(self, 'b4_conv', D.b4.conv)
+        setattr(self, 'adavgpool', nn.AdaptiveAvgPool2d(4))  # Necessary if images are of different resolution than D.img_resolution
+        setattr(self, 'fc', D.b4.fc)
+        setattr(self, 'out', D.b4.out)
 
     def get_block_resolutions(self):
-        """Get the block resolutions available for the current Discriminator"""
+        """Get the block resolutions available for the current Discriminator. Remove?"""
         return self.block_resolutions
 
     def get_layers_features(self,
                             x: torch.Tensor,            # Input image
                             layers: List[str] = None,
+                            channels: List[int] = None,
                             normed: bool = False,
-                            sqrt_normed: bool = False) -> List[torch.Tensor]:
+                            sqrt_normed: bool = False) -> Tuple[torch.Tensor, ...]:
         """
         Get the feature of a specific layer of the Discriminator (with resnet architecture). The following shows the
         shapes of an image, x, as it flows through the different blocks that compose the Discriminator.
@@ -271,7 +273,7 @@ class DiscriminatorFeatures(torch.nn.Module):
             layers = ['out']
 
         features_dict = OrderedDict()  # Can just be a dictionary, but I plan to use the order of the features later on
-        features_dict['from_rgb'] = self.from_rgb(x)    # [1, 3, D.img_resolution, D.img_resolution] =>
+        features_dict['from_rgb'] = getattr(self, 'from_rgb')(x)    # [1, 3, D.img_resolution, D.img_resolution] =>
         #                                                                => [1, 32, D.img_resolution, D.img_resolution]
 
         for idx, res in enumerate(self.block_resolutions):
@@ -296,14 +298,20 @@ class DiscriminatorFeatures(torch.nn.Module):
             features_dict[f'b{res}_conv1'] = features_dict[f'b{res}_skip'].add_(features_dict[f'b{res}_conv1'])
 
         # Irrespective of the image size/model size, the last block will be the same:
-        features_dict['b4_mbstd'] = self.b4_mbstd(features_dict['b8_conv1'])  # [1, 512, 4, 4] ~> [1, 513, 4, 4]
-        features_dict['b4_conv'] = self.b4_conv(features_dict['b4_mbstd'])    # [1, 513, 4, 4] => [1, 512, 4, 4]
-        features_dict['b4_conv'] = self.adavgpool(features_dict['b4_conv'])   # [1, 512, 4, 4] +> [1, 512, 4, 4]  (Needed if x's resolution is not D.img_resolution)
-        features_dict['fc'] = self.fc(features_dict['b4_conv'].flatten(1))    # [1, 512, 4, 4] -> [1, 8192] ->> [1, 512]
-        features_dict['out'] = self.out(features_dict['fc'])                  # [1, 512] ->> [1, 1]
+        features_dict['b4_mbstd'] = getattr(self, 'b4_mbstd')(features_dict['b8_conv1'])  # [1, 512, 4, 4] ~> [1, 513, 4, 4]
+        features_dict['b4_conv'] = getattr(self, 'b4_conv')(features_dict['b4_mbstd'])    # [1, 513, 4, 4] => [1, 512, 4, 4]
+        features_dict['b4_conv'] = getattr(self, 'adavgpool')(features_dict['b4_conv'])   # [1, 512, 4, 4] +> [1, 512, 4, 4]  (Needed if x's resolution is not D.img_resolution)
+        features_dict['fc'] = getattr(self, 'fc')(features_dict['b4_conv'].flatten(1))    # [1, 512, 4, 4] -> [1, 8192] ->> [1, 512]
+        features_dict['out'] = getattr(self, 'out')(features_dict['fc'])                  # [1, 512] ->> [1, 1]
 
         result_list = list()
         for layer in layers:
+            if channels is not None:
+                max_channels = features_dict[layer].shape[1]  # The number of channels in the layer
+                channels = [c for c in channels if c < max_channels]  # Remove channels that are too high
+                channels = [c for c in channels if c >= 0]  # Remove channels that are too low
+                channels = list(set(channels))  # Remove duplicates
+                features_dict[layer] = features_dict[layer][:, channels, :, :]  # [1, max_channels, size, size] => [1, len(channels), size, size]
             # Two options to normalize, otherwise we only add the unmodified output; recommended if using more than one layer
             if normed:
                 result_list.append(features_dict[layer] / torch.numel(features_dict[layer]))
@@ -313,4 +321,4 @@ class DiscriminatorFeatures(torch.nn.Module):
             else:
                 result_list.append(features_dict[layer])
 
-        return result_list
+        return tuple(result_list)

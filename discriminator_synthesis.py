@@ -66,13 +66,13 @@ def get_image(seed: int = 0,
         image = Image.open(starting_image).convert('RGB').resize((image_size, image_size), Image.LANCZOS)
     else:
         if image_noise == 'random':
-            starting_image = f'random_image-seed_{seed}.jpg'
+            starting_image = f'random_image-seed_{seed:08d}.jpg'
             image = Image.fromarray(rnd.randint(0, 255, (image_size, image_size, 3), dtype='uint8'))
         elif image_noise == 'perlin':
             try:
                 # Graciously using Mathieu Duchesneau's implementation: https://github.com/duchesneaumathieu/pyperlin
                 from pyperlin import FractalPerlin2D
-                starting_image = f'perlin_image-seed_{seed}.jpg'
+                starting_image = f'perlin_image-seed_{seed:08d}.jpg'
                 shape = (3, image_size, image_size)
                 resolutions = [(2**i, 2**i) for i in range(1, 6+1)]  # for lacunarity = 2.0  # TODO: set as cli variable
                 factors = [0.5**i for i in range(6)]  # for persistence = 0.5 TODO: set as cli variables
@@ -145,6 +145,7 @@ def clip(image_tensor: torch.Tensor) -> torch.Tensor:
 def dream(image: PIL.Image.Image,
           model: torch.nn.Module,
           layers: List[str],
+          channels: List[int] = None,
           normed: bool = False,
           sqrt_normed: bool = False,
           iterations: int = 20,
@@ -154,7 +155,7 @@ def dream(image: PIL.Image.Image,
     image = Variable(Tensor(image), requires_grad=True)
     for i in range(iterations):
         model.zero_grad()
-        out = model.get_layers_features(image, layers=layers, normed=normed, sqrt_normed=sqrt_normed)
+        out = model.get_layers_features(image, layers=layers, channels=channels, normed=normed, sqrt_normed=sqrt_normed)
         loss = sum(layer.norm() for layer in out)                   # More than one layer may be used
         loss.backward()
         avg_grad = np.abs(image.grad.data.cpu().numpy()).mean()
@@ -170,6 +171,8 @@ def deep_dream(image: PIL.Image.Image,
                model: torch.nn.Module,
                model_resolution: int,
                layers: List[str],
+               channels: List[int],
+               seed: int,
                normed: bool,
                sqrt_normed: bool,
                iterations: int,
@@ -196,7 +199,7 @@ def deep_dream(image: PIL.Image.Image,
         octaves.append(octave)
 
     detail = np.zeros_like(octaves[-1])
-    for octave, octave_base in enumerate(tqdm(octaves[::-1], desc=f'Dreaming w/layers {"|".join(x for x in layers)}',
+    for octave, octave_base in enumerate(tqdm(octaves[::-1], desc=f'Seed: {seed} - Dreaming w/layers {"|".join(x for x in layers)}',
                                               disable=disable_inner_tqdm)):
         if octave > 0:
             # Upsample detail to new octave dimension
@@ -204,7 +207,7 @@ def deep_dream(image: PIL.Image.Image,
         # Add deep dream detail from previous octave to new base
         input_image = octave_base + detail
         # Get new deep dream image
-        dreamed_image = dream(input_image, model, layers, normed, sqrt_normed, iterations, lr)
+        dreamed_image = dream(input_image, model, layers, channels, normed, sqrt_normed, iterations, lr)
         # Extract deep dream details
         detail = dreamed_image - octave_base
 
@@ -228,7 +231,7 @@ def style_transfer_discriminator():
 @click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
 @click.option('--cfg', type=click.Choice(['stylegan3-t', 'stylegan3-r', 'stylegan2']), help='Model base configuration', default=None)
 # Synthesis options
-@click.option('--seed', type=int, help='Random seed to use', default=0)
+@click.option('--seeds', type=gen_utils.num_range, help='Random seeds to use. Accepted comma-separated values, ranges, or combinations: "a,b,c", "a-c", "a,b-d,e".', default=0)
 @click.option('--random-image-noise', '-noise', 'image_noise', type=click.Choice(['random', 'perlin']), default='random', show_default=True)
 @click.option('--starting-image', type=str, help='Path to image to start from', default=None)
 @click.option('--convert-to-grayscale', '-grayscale', is_flag=True, help='Add flag to grayscale the initial image')
@@ -237,6 +240,7 @@ def style_transfer_discriminator():
 @click.option('--iterations', '-it', type=int, help='Number of gradient ascent steps per octave', default=20, show_default=True)
 # Layer options
 @click.option('--layers', type=str, help='Layers of the Discriminator to use as the features. If "all", will generate a dream image per available layer in the loaded model. If "use_all", will use all available layers.', default='b16_conv1', show_default=True)
+@click.option('--channels', type=gen_utils.num_range, help='Comma-separated list and/or range of the channels of the Discriminator to use as the features. If "None", will use all channels in each specified layer.', default=None, show_default=True)
 @click.option('--normed', 'norm_model_layers', is_flag=True, help='Add flag to divide the features of each layer of D by its number of elements')
 @click.option('--sqrt-normed', 'sqrt_norm_model_layers', is_flag=True, help='Add flag to divide the features of each layer of D by the square root of its number of elements')
 # Octaves options
@@ -250,7 +254,7 @@ def discriminator_dream(
         ctx: click.Context,
         network_pkl: Union[str, os.PathLike],
         cfg: Optional[str],
-        seed: int,
+        seeds: List[int],
         image_noise: str,
         starting_image: Union[str, os.PathLike],
         convert_to_grayscale: bool,
@@ -258,6 +262,7 @@ def discriminator_dream(
         learning_rate: float,
         iterations: int,
         layers: str,
+        channels: Optional[List[int]],
         norm_model_layers: bool,
         sqrt_norm_model_layers: bool,
         num_octaves: int,
@@ -278,7 +283,7 @@ def discriminator_dream(
     # Get the model resolution (image resizing and getting available layers)
     model_resolution = D.img_resolution
 
-    # TODO: do this better, as wec can combine these conditions later
+    # TODO: do this better, as we can combine these conditions later
     layers = layers.split(',')
 
     # We will use the features of the Discriminator, on the layer specified by the user
@@ -288,59 +293,57 @@ def discriminator_dream(
         # Get all the available layers in a list
         layers = get_available_layers(max_resolution=model_resolution)
 
-        # Get the image and image name
-        image, starting_image = get_image(seed=seed, image_noise=image_noise,
-                                          starting_image=starting_image,
-                                          image_size=model_resolution,
-                                          convert_to_grayscale=convert_to_grayscale)
+        for seed in seeds:
+            # Get the image and image name
+            image, starting_image = get_image(seed=seed, image_noise=image_noise,
+                                              starting_image=starting_image,
+                                              image_size=model_resolution,
+                                              convert_to_grayscale=convert_to_grayscale)
 
-        # Make the run dir in the specified output directory
-        desc = 'discriminator-dream-all_layers'
-        desc = f'{desc}-{description}' if len(description) != 0 else desc
-        run_dir = gen_utils.make_run_dir(outdir, desc)
+            # Make the run dir in the specified output directory
+            desc = f'discriminator-dream-all_layers-seed_{seed}'
+            desc = f'{desc}-{description}' if len(description) != 0 else desc
+            run_dir = gen_utils.make_run_dir(outdir, desc)
 
-        # Save starting image
-        image.save(os.path.join(run_dir, f'{os.path.basename(starting_image).split(".")[0]}.jpg'))
+            # Save starting image
+            image.save(os.path.join(run_dir, f'{os.path.basename(starting_image).split(".")[0]}.jpg'))
 
-        # Save the configuration used
-        ctx.obj = {
-            'network_pkl': network_pkl,
-            'synthesis_options': {
-                'seed': seed,
-                'random_image_noise': image_noise,
-                'starting_image': starting_image,
-                'class_idx': class_idx,
-                'learning_rate': learning_rate,
-                'iterations': iterations
-            },
-            'layer_options': {
-                'layer': layers,
-                'norm_model_layers': norm_model_layers,
-                'sqrt_norm_model_layers': sqrt_norm_model_layers
-            },
-            'octaves_options': {
-                'num_octaves': num_octaves,
-                'octave_scale': octave_scale,
-                'unzoom_octave': unzoom_octave
-            },
-            'extra_parameters': {
-                'outdir': run_dir,
-                'description': description
+            # Save the configuration used
+            ctx.obj = {
+                'network_pkl': network_pkl,
+                'synthesis_options': {
+                    'seed': seed,
+                    'random_image_noise': image_noise,
+                    'starting_image': starting_image,
+                    'class_idx': class_idx,
+                    'learning_rate': learning_rate,
+                    'iterations': iterations},
+                'layer_options': {
+                    'layer': layers,
+                    'channels': channels,
+                    'norm_model_layers': norm_model_layers,
+                    'sqrt_norm_model_layers': sqrt_norm_model_layers},
+                'octaves_options': {
+                    'num_octaves': num_octaves,
+                    'octave_scale': octave_scale,
+                    'unzoom_octave': unzoom_octave},
+                'extra_parameters': {
+                    'outdir': run_dir,
+                    'description': description}
             }
-        }
-        # Save the run configuration
-        gen_utils.save_config(ctx=ctx, run_dir=run_dir)
+            # Save the run configuration
+            gen_utils.save_config(ctx=ctx, run_dir=run_dir)
 
-        # For each layer:
-        for layer in layers:
-            # Extract deep dream image
-            dreamed_image = deep_dream(image, model, model_resolution, layers=[layer], normed=norm_model_layers,
-                                       sqrt_normed=sqrt_norm_model_layers, iterations=iterations, lr=learning_rate,
-                                       octave_scale=octave_scale, num_octaves=num_octaves, unzoom_octave=unzoom_octave)
+            # For each layer:
+            for layer in layers:
+                # Extract deep dream image
+                dreamed_image = deep_dream(image, model, model_resolution, layers=[layer], channels=channels, seed=seed, normed=norm_model_layers,
+                                           sqrt_normed=sqrt_norm_model_layers, iterations=iterations, lr=learning_rate,
+                                           octave_scale=octave_scale, num_octaves=num_octaves, unzoom_octave=unzoom_octave)
 
-            # Save the resulting dreamed image
-            filename = f'layer-{layer}_dreamed_{os.path.basename(starting_image).split(".")[0]}.jpg'
-            Image.fromarray(dreamed_image, 'RGB').save(os.path.join(run_dir, filename))
+                # Save the resulting dreamed image
+                filename = f'layer-{layer}_dreamed_{os.path.basename(starting_image).split(".")[0]}.jpg'
+                Image.fromarray(dreamed_image, 'RGB').save(os.path.join(run_dir, filename))
 
     else:
         if 'use_all' in layers:
@@ -350,46 +353,54 @@ def discriminator_dream(
             # Parse the layers given by the user and leave only those available by the model
             available_layers = get_available_layers(max_resolution=model_resolution)
             layers = [layer for layer in layers if layer in available_layers]
-        # Get the image and image name
-        image, starting_image = get_image(seed=seed, image_noise=image_noise,
-                                          starting_image=starting_image,
-                                          image_size=model_resolution,
-                                          convert_to_grayscale=convert_to_grayscale)
-
-        # Extract deep dream image
-        dreamed_image = deep_dream(image, model, model_resolution, layers=layers, normed=norm_model_layers,
-                                   sqrt_normed=sqrt_norm_model_layers, iterations=iterations, lr=learning_rate,
-                                   octave_scale=octave_scale, num_octaves=num_octaves, unzoom_octave=unzoom_octave)
 
         # Make the run dir in the specified output directory
         desc = f'discriminator-dream-layers_{"-".join(x for x in layers)}'
         desc = f'{desc}-{description}' if len(description) != 0 else desc
         run_dir = gen_utils.make_run_dir(outdir, desc)
 
-        # Save the configuration used
-        ctx.obj = {
-            'network_pkl': network_pkl,
-            'seed': seed,
-            'starting_image': starting_image,
-            'class_idx': class_idx,
-            'learning_rate': learning_rate,
-            'iterations': iterations,
-            'layer': layers,
-            'norm_model_layers': norm_model_layers,
-            'sqrt_norm_model_layers': sqrt_norm_model_layers,
-            'octave_scale': octave_scale,
-            'num_octaves': num_octaves,
-            'unzoom_octave': unzoom_octave,
-            'outdir': run_dir,
-            'description': description
-        }
-        # Save the run configuration
-        gen_utils.save_config(ctx=ctx, run_dir=run_dir)
+        for seed in seeds:
+            # Get the image and image name
+            image, starting_image = get_image(seed=seed, image_noise=image_noise,
+                                              starting_image=starting_image,
+                                              image_size=model_resolution,
+                                              convert_to_grayscale=convert_to_grayscale)
 
-        # Save the resulting image and initial image
-        filename = f'dreamed_{os.path.basename(starting_image)}'
-        Image.fromarray(dreamed_image, 'RGB').save(os.path.join(run_dir, filename))
-        image.save(os.path.join(run_dir, os.path.basename(starting_image)))
+            # Extract deep dream image
+            dreamed_image = deep_dream(image, model, model_resolution, layers=layers, channels=channels, seed=seed, normed=norm_model_layers,
+                                       sqrt_normed=sqrt_norm_model_layers, iterations=iterations, lr=learning_rate,
+                                       octave_scale=octave_scale, num_octaves=num_octaves, unzoom_octave=unzoom_octave)
+
+            # Save the configuration used
+            ctx.obj = {
+                'network_pkl': network_pkl,
+                'synthesis_options': {
+                    'seed': seed,
+                    'starting_image': starting_image,
+                    'class_idx': class_idx,
+                    'learning_rate': learning_rate,
+                    'iterations': iterations},
+                'layer_options': {
+                    'layer': layers,
+                    'channels': channels,
+                    'norm_model_layers': norm_model_layers,
+                    'sqrt_norm_model_layers': sqrt_norm_model_layers},
+                'octaves_options': {
+                    'octave_scale': octave_scale,
+                    'num_octaves': num_octaves,
+                    'unzoom_octave': unzoom_octave},
+                'extra_parameters': {
+                'outdir': run_dir,
+                'description': description}
+            }
+            # Save the run configuration
+            gen_utils.save_config(ctx=ctx, run_dir=run_dir)
+
+            # Save the resulting image and initial image
+            filename = f'dreamed_{os.path.basename(starting_image)}'
+            Image.fromarray(dreamed_image, 'RGB').save(os.path.join(run_dir, filename))
+            image.save(os.path.join(run_dir, os.path.basename(starting_image)))
+            starting_image = None
 
 
 # ----------------------------------------------------------------------------
@@ -409,6 +420,7 @@ def discriminator_dream(
 @click.option('--iterations', '-it', type=click.IntRange(min=1), help='Number of gradient ascent steps per octave', default=10, show_default=True)
 # Layer options
 @click.option('--layers', type=str, help='Comma-separated list of the layers of the Discriminator to use as the features. If "use_all", will use all available layers.', default='b16_conv0', show_default=True)
+@click.option('--channels', type=gen_utils.num_range, help='Comma-separated list and/or range of the channels of the Discriminator to use as the features. If "None", will use all channels in each specified layer.', default=None, show_default=True)
 @click.option('--normed', 'norm_model_layers', is_flag=True, help='Add flag to divide the features of each layer of D by its number of elements')
 @click.option('--sqrt-normed', 'sqrt_norm_model_layers', is_flag=True, help='Add flag to divide the features of each layer of D by the square root of its number of elements')
 # Octaves options
@@ -440,6 +452,7 @@ def discriminator_dream_zoom(
         learning_rate: float,
         iterations: int,
         layers: str,
+        channels: List[int],
         norm_model_layers: Optional[bool],
         sqrt_norm_model_layers: Optional[bool],
         num_octaves: int,
@@ -505,6 +518,7 @@ def discriminator_dream_zoom(
         },
         'layer_options': {
             'layers': layers,
+            'channels': channels,
             'norm_model_layers': norm_model_layers,
             'sqrt_norm_model_layers': sqrt_norm_model_layers
         },
@@ -546,7 +560,7 @@ def discriminator_dream_zoom(
             image = crop_resize_rotate(image, crop_size=zoom_size, new_size=model_resolution,
                                        rotation_deg=rotation_deg, translate_x=translate_x, translate_y=translate_y)
         # Extract deep dream image
-        dreamed_image = deep_dream(image, model, model_resolution, layers=layers, normed=norm_model_layers,
+        dreamed_image = deep_dream(image, model, model_resolution, layers=layers, seed=seed, normed=norm_model_layers,
                                    sqrt_normed=sqrt_norm_model_layers, iterations=iterations,
                                    lr=learning_rate, octave_scale=octave_scale, num_octaves=num_octaves,
                                    unzoom_octave=unzoom_octave, disable_inner_tqdm=True)
@@ -560,12 +574,10 @@ def discriminator_dream_zoom(
 
     # Save the final video
     print('Saving video...')
-    if os.name == 'nt':  # No glob pattern for Windows
-        stream = ffmpeg.input(os.path.join(run_dir, f'dreamed_%0{n_digits}d.jpg'), framerate=fps)
-    else:
-        stream = ffmpeg.input(os.path.join(run_dir, 'dreamed_*.jpg'), pattern_type='glob', framerate=fps)
+    ffmpeg_command = r'/usr/bin/ffmpeg' if os.name != 'nt' else r'C:\\Ffmpeg\\bin\\ffmpeg.exe'
+    stream = ffmpeg.input(os.path.join(run_dir, f'dreamed_%0{n_digits}d.jpg'), framerate=fps)
     stream = ffmpeg.output(stream, os.path.join(run_dir, 'dream-zoom.mp4'), crf=20, pix_fmt='yuv420p')
-    ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)  # I dislike ffmpeg's console logs, so I turn them off
+    ffmpeg.run(stream, capture_stdout=True, capture_stderr=True, cmd=ffmpeg_command)
 
     # Save the reversed video apart from the original one, so the user can compare both
     if reverse_video:
@@ -574,6 +586,16 @@ def discriminator_dream_zoom(
         stream = ffmpeg.output(stream, os.path.join(run_dir, 'dream-zoom_reversed.mp4'), crf=20, pix_fmt='yuv420p')
         ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)  # ibidem
 
+
+# ----------------------------------------------------------------------------
+
+@main.command(name='channel-zoom')
+@click.pass_context
+@click.option('--network-pkl', help='Network pickle filename', required=True, type=click.Path(exists=True))
+def channel_zoom():
+    """Zoom in using all the channels of a network (or a specified layer)"""
+    # TODO: Implement this
+    pass
 
 # ----------------------------------------------------------------------------
 
