@@ -484,15 +484,13 @@ def w_to_img(G, dlatents: Union[List[torch.Tensor], torch.Tensor], noise_mode: s
     return synth_image
 
 
-def z_to_dlatent(G, latents: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
-    """
-    Get the dlatent from the given latent, class label and truncation psi
-    """
+def z_to_dlatent(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: float = 1.0) -> torch.Tensor:
+    """Get the dlatent from the given latent, class label and truncation psi"""
     assert isinstance(latents, torch.Tensor), f'latents should be a torch.Tensor!: "{type(latents)}"'
     assert isinstance(label, torch.Tensor), f'label should be a torch.Tensor!: "{type(label)}"'
     if len(latents.shape) == 1:
         latents = latents.unsqueeze(0)  # An individual latent => [1, G.z_dim]
-    dlatents = G.mapping(z=latents, c=label)
+    dlatents = G.mapping(z=latents, c=label, truncation_psi=truncation_psi)
 
     return dlatents
 
@@ -502,7 +500,7 @@ def z_to_img(G, latents: torch.Tensor, label: torch.Tensor, truncation_psi: floa
     Get an image/np.ndarray from a latent Z using G, the label, truncation_psi, and noise_mode. The shape
     of the output image/np.ndarray will be [len(latents), G.img_resolution, G.img_resolution, G.img_channels]
     """
-    dlatents = z_to_dlatent(G=G, latents=latents, label=label)
+    dlatents = z_to_dlatent(G=G, latents=latents, label=label, truncation_psi=1.0)
     dlatents = G.mapping.w_avg + (G.mapping.w_avg - dlatents) * truncation_psi
     img = w_to_img(G=G, dlatents=dlatents, noise_mode=noise_mode)  # Let's not redo code
     return img

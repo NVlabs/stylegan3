@@ -64,11 +64,11 @@ def generate_images(
         ctx: click.Context,
         network_pkl: str,
         device: Optional[str],
-        cfg: str,
+        cfg: Optional[str],
         seeds: Optional[List[int]],
-        truncation_psi: float,
+        truncation_psi: Optional[float],
         class_idx: Optional[int],
-        noise_mode: str,
+        noise_mode: Optional[str],
         anchor_latent_space: Optional[bool],
         projected_w: Optional[Union[str, os.PathLike]],
         new_center: Tuple[str, Union[int, np.ndarray]],
@@ -84,7 +84,7 @@ def generate_images(
         grid_width: int,
         grid_height: int,
         save_dlatents: Optional[bool],
-        outdir: str,
+        outdir: Union[str, os.PathLike],
         description: str,
 ):
     """Generate images using pretrained network pickle.
@@ -320,13 +320,13 @@ def generate_images(
 def random_interpolation_video(
         ctx: click.Context,
         network_pkl: Union[str, os.PathLike],
-        cfg: str,
+        cfg: Optional[str],
         seeds: List[int],
-        truncation_psi: float,
+        truncation_psi: Optional[float],
         new_center: Tuple[str, Union[int, np.ndarray]],
         class_idx: Optional[int],
-        noise_mode: str,
-        anchor_latent_space: bool,
+        noise_mode: Optional[str],
+        anchor_latent_space: Optional[bool],
         layer_name: Optional[str],
         available_layers: Optional[bool],
         starting_channel: Optional[int],
@@ -336,8 +336,8 @@ def random_interpolation_video(
         img_normalize: Optional[bool],
         grid_width: int,
         grid_height: int,
-        slowdown: int,
-        duration_sec: float,
+        slowdown: Optional[int],
+        duration_sec: Optional[float],
         fps: int,
         outdir: Union[str, os.PathLike],
         description: str,
@@ -383,8 +383,8 @@ def random_interpolation_video(
         sys.exit(1)
 
     # Sadly, render can only generate one image at a time, so for now we'll just use the first seed
-    if layer_name is not None:
-        print(f'Note: Only one seed is supported for layer extraction, using seed {seeds[0]}...')
+    if layer_name is not None and len(seeds) > 1:
+        print(f'Note: Only one seed is supported for layer extraction, using seed "{seeds[0]}"...')
         seeds = seeds[:1]
 
     # Stabilize/anchor the latent space
@@ -591,18 +591,18 @@ def random_interpolation_video(
 def circular_video(
         ctx: click.Context,
         network_pkl: Union[str, os.PathLike],
-        cfg: str,
+        cfg: Optional[str],
         seed: int,
-        truncation_psi: float,
+        truncation_psi: Optional[float],
         new_center: Tuple[str, Union[int, np.ndarray]],
         class_idx: Optional[int],
-        noise_mode: str,
-        anchor_latent_space: bool,
+        noise_mode: Optional[str],
+        anchor_latent_space: Optional[bool],
         grid_width: int,
         grid_height: int,
         duration_sec: float,
         fps: int,
-        compress: bool,
+        compress: Optional[bool],
         outdir: Union[str, os.PathLike],
         description: str
 ):
