@@ -75,7 +75,7 @@ class VGG16Features(torch.nn.Module):
 class VGG16FeaturesNVIDIA(torch.nn.Module):
     def __init__(self, vgg16):
         super(VGG16FeaturesNVIDIA, self).__init__()
-        # ReLU is already included in the output of every conv output
+        # NOTE: ReLU is already included in the output of every conv output
         self.conv1_1 = vgg16.layers.conv1
         self.conv1_2 = vgg16.layers.conv2
         self.pool1 = vgg16.layers.pool1
@@ -134,39 +134,47 @@ class VGG16FeaturesNVIDIA(torch.nn.Module):
         """
         # Legend: => conv2d, -> max pool 2d, ~> adaptive average pool 2d, ->> fc layer; shapes of input/output are shown
         assert layers is not None
-        conv1_1 = self.conv1_1(x)                         # [1, 3, 256, 256] => [1, 64, 256, 256]
-        conv1_2 = self.conv1_2(conv1_1)                   # [1, 64, 256, 256] => [1, 64, 256, 256]
 
-        conv2_1 = self.conv2_1(self.pool1(conv1_2))       # [1, 64, 256, 256] -> [1, 64, 128, 128] => [1, 128, 128, 128]
-        conv2_2 = self.conv2_2(conv2_1)                   # [1, 128, 128, 128] => [1, 128, 128, 128]
+        features_dict = OrderedDict()
+        features_dict['conv1_1'] = self.conv1_1(x)                            # [1, 3, 256, 256] => [1, 64, 256, 256]
+        features_dict['conv1_2'] = self.conv1_2(features_dict['conv1_1'])     # [1, 64, 256, 256] => [1, 64, 256, 256]
+        features_dict['pool1'] = self.pool1(features_dict['conv1_2'])         # [1, 64, 256, 256] -> [1, 64, 128, 128]
 
-        conv3_1 = self.conv3_1(self.pool2(conv2_2))       # [1, 128, 128, 128] -> [1, 128, 64, 64] => [1, 256, 64, 64]
-        conv3_2 = self.conv3_2(conv3_1)                   # [1, 256, 64, 64] => [1, 256, 64, 64]
-        conv3_3 = self.conv3_3(conv3_2)                   # [1, 256, 64, 64] => [1, 256, 64, 64]
+        features_dict['conv2_1'] = self.conv2_1(features_dict['pool1'])       # [1, 64, 128, 128] => [1, 128, 128, 128]
+        features_dict['conv2_2'] = self.conv2_2(features_dict['conv2_1'])     # [1, 128, 128, 128] => [1, 128, 128, 128]
+        features_dict['pool2'] = self.pool2(features_dict['conv2_2'])         # [1, 128, 128, 128] -> [1, 128, 64, 64]
 
-        conv4_1 = self.conv4_1(self.pool3(conv3_3))       # [1, 256, 64, 64] -> [1, 256, 32, 32] => [1, 512, 32, 32]
-        conv4_2 = self.conv4_2(conv4_1)                   # [1, 512, 32, 32] => [1, 512, 32, 32]
-        conv4_3 = self.conv4_3(conv4_2)                   # [1, 512, 32, 32] => [1, 512, 32, 32]
+        features_dict['conv3_1'] = self.conv3_1(features_dict['pool2'])       # [1, 128, 64, 64] => [1, 256, 64, 64]
+        features_dict['conv3_2'] = self.conv3_2(features_dict['conv3_1'])     # [1, 256, 64, 64] => [1, 256, 64, 64]
+        features_dict['conv3_3'] = self.conv3_3(features_dict['conv3_2'])     # [1, 256, 64, 64] => [1, 256, 64, 64]
+        features_dict['pool3'] = self.pool3(features_dict['conv3_3'])         # [1, 256, 64, 64] -> [1, 256, 32, 32]
 
-        conv5_1 = self.conv5_1(self.pool4(conv4_3))       # [1, 512, 32, 32] -> [1, 512, 16, 16] => [1, 512, 16, 16]
-        conv5_2 = self.conv5_2(conv5_1)                   # [1, 512, 16, 16] => [1, 512, 16, 16]
-        conv5_3 = self.conv5_3(conv5_2)                   # [1, 512, 16, 16] => [1, 512, 16, 16]
+        features_dict['conv4_1'] = self.conv4_1(features_dict['pool3'])       # [1, 256, 32, 32] => [1, 512, 32, 32]
+        features_dict['conv4_2'] = self.conv4_2(features_dict['conv4_1'])     # [1, 512, 32, 32] => [1, 512, 32, 32]
+        features_dict['conv4_3'] = self.conv4_3(features_dict['conv4_2'])     # [1, 512, 32, 32] => [1, 512, 32, 32]
+        features_dict['pool4'] = self.pool4(features_dict['conv4_3'])         # [1, 512, 32, 32] -> [1, 512, 16, 16]
 
-        adavgpool = self.adavgpool(self.pool5(conv5_3))   # [1, 512, 16, 16] -> [1, 512, 8, 8] ~> [1, 512, 7, 7]
-        fc1 = self.fc1(adavgpool)                         # [1, 512, 7, 7] ->> [1, 4096]; w/ReLU
-        fc2 = self.fc2(fc1)                               # [1, 4096] ->> [1, 4096]; w/ReLU
-        fc3 = self.softmax(self.fc3(fc2))                 # [1, 4096] ->> [1, 1000]; w/o ReLU; apply softmax
+        features_dict['conv5_1'] = self.conv5_1(features_dict['pool4'])       # [1, 512, 16, 16] => [1, 512, 16, 16]
+        features_dict['conv5_2'] = self.conv5_2(features_dict['conv5_1'])     # [1, 512, 16, 16] => [1, 512, 16, 16]
+        features_dict['conv5_3'] = self.conv5_3(features_dict['conv5_2'])     # [1, 512, 16, 16] => [1, 512, 16, 16]
+        features_dict['pool5'] = self.pool5(features_dict['conv5_3'])         # [1, 512, 16, 16] -> [1, 512, 8, 8]
+
+        features_dict['adavgpool'] = self.adavgpool(features_dict['pool5'])   # [1, 512, 8, 8] ~> [1, 512, 7, 7]
+        features_dict['fc1'] = self.fc1(features_dict['adavgpool'])           # [1, 512, 7, 7] ->> [1, 4096]; w/ReLU
+        features_dict['fc2'] = self.fc2(features_dict['fc1'])                 # [1, 4096] ->> [1, 4096]; w/ReLU
+        features_dict['fc3'] = self.softmax(self.fc3(features_dict['fc2']))   # [1, 4096] ->> [1, 1000]; w/o ReLU; apply softmax
 
         result_list = list()
         for layer in layers:
             if normed:
                 # Divide each layer by the number of elements in it
-                result_list.append(eval(layer) / torch.numel(eval(layer)))
+                result_list.append(features_dict[layer] / torch.numel(features_dict[layer]))
             elif sqrt_normed:
                 # Divide each layer by the square root of the number of elements in it
-                result_list.append(eval(layer) / torch.tensor(torch.numel(eval(layer)), dtype=torch.float).sqrt())
+                result_list.append(features_dict[layer] / torch.tensor(torch.numel(features_dict[layer]),
+                                                                       dtype=torch.float).sqrt())
             else:
-                result_list.append(eval(layer))
+                result_list.append(features_dict[layer])
         return result_list
 
 
@@ -311,7 +319,10 @@ class DiscriminatorFeatures(torch.nn.Module):
                 channels = [c for c in channels if c < max_channels]  # Remove channels that are too high
                 channels = [c for c in channels if c >= 0]  # Remove channels that are too low
                 channels = list(set(channels))  # Remove duplicates
-                features_dict[layer] = features_dict[layer][:, channels, :, :]  # [1, max_channels, size, size] => [1, len(channels), size, size]
+                if layer not in ['fc', 'out']:
+                    features_dict[layer] = features_dict[layer][:, channels, :, :]  # [1, max_channels, size, size] => [1, len(channels), size, size]
+                else:
+                    features_dict[layer] = features_dict[layer][:, channels]  # [1, max_channels] => [1, len(channels)]
             # Two options to normalize, otherwise we only add the unmodified output; recommended if using more than one layer
             if normed:
                 result_list.append(features_dict[layer] / torch.numel(features_dict[layer]))
