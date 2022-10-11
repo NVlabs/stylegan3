@@ -48,7 +48,7 @@ def parse_tuple(s: str) -> Tuple[int, int]:
     """
     m = re.match(r'^(\d+)[x,](\d+)$', s)
     if m:
-        return (int(m.group(1)), int(m.group(2)))
+        return int(m.group(1)), int(m.group(2))
     raise ValueError(f'cannot parse tuple {s}')
 
 
@@ -73,13 +73,13 @@ def file_ext(name: Union[str, Path]) -> str:
 
 def is_image_ext(fname: Union[str, Path]) -> bool:
     ext = file_ext(fname).lower()
-    return f'.{ext}' in PIL.Image.EXTENSION # type: ignore
+    return f'.{ext}' in PIL.Image.EXTENSION  # type: ignore
 
 
 # ----------------------------------------------------------------------------
 
 
-def open_image_folder(source_dir, *, max_images: Optional[int]):
+def open_image_folder(source_dir, force_channels: int = None, *, max_images: Optional[int]):
     input_images = [str(f) for f in sorted(Path(source_dir).rglob('*')) if is_image_ext(f) and os.path.isfile(f)]
 
     # Load labels.
@@ -89,7 +89,7 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
         with open(meta_fname, 'r') as file:
             labels = json.load(file)['labels']
             if labels is not None:
-                labels = { x[0]: x[1] for x in labels }
+                labels = {x[0]: x[1] for x in labels}
             else:
                 labels = {}
 
@@ -105,6 +105,9 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
                 # Convert grayscale image to RGB
                 if img.mode == 'L':
                     img = img.convert('RGB')
+                # Force the number of channels if so requested
+                if force_channels is not None:
+                    img = img.convert(gen_utils.channels_dict[force_channels])
                 img = np.array(img)
             except Exception as e:
                 sys.stderr.write(f'Failed to read {fname}: {e}')
@@ -118,7 +121,7 @@ def open_image_folder(source_dir, *, max_images: Optional[int]):
 # ----------------------------------------------------------------------------
 
 
-def open_image_zip(source, *, max_images: Optional[int]):
+def open_image_zip(source, force_channels: int = None, *, max_images: Optional[int]):
     with zipfile.ZipFile(source, mode='r') as z:
         input_images = [str(f) for f in sorted(z.namelist()) if is_image_ext(f)]
 
@@ -143,6 +146,9 @@ def open_image_zip(source, *, max_images: Optional[int]):
                         img = PIL.Image.open(file) # type: ignore
                         if img.mode == 'L':
                             img = img.convert('RGB')
+                        # Force the number of channels if so requested
+                        if force_channels is not None:
+                            img = img.convert(gen_utils.channels_dict[force_channels])
                         img = np.array(img)
                     except Exception as e:
                         sys.stderr.write(f'Failed to read {fname}: {e}')
@@ -320,27 +326,31 @@ def make_transform(
         return functools.partial(center_crop_tall, output_width, output_height)
     assert False, 'unknown transform'
 
-#----------------------------------------------------------------------------
 
-def open_dataset(source, *, max_images: Optional[int]):
+# ----------------------------------------------------------------------------
+
+
+def open_dataset(source, force_channels, *, max_images: Optional[int]):
     if os.path.isdir(source):
         if source.rstrip('/').endswith('_lmdb'):
             return open_lmdb(source, max_images=max_images)
         else:
-            return open_image_folder(source, max_images=max_images)
+            return open_image_folder(source, force_channels, max_images=max_images)
     elif os.path.isfile(source):
         if os.path.basename(source) == 'cifar-10-python.tar.gz':
             return open_cifar10(source, max_images=max_images)
         elif os.path.basename(source) == 'train-images-idx3-ubyte.gz':
             return open_mnist(source, max_images=max_images)
         elif file_ext(source) == 'zip':
-            return open_image_zip(source, max_images=max_images)
+            return open_image_zip(source, force_channels, max_images=max_images)
         else:
             assert False, 'unknown archive type'
     else:
         error(f'Missing input file or directory: {source}')
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+
 
 def open_dest(dest: str) -> Tuple[str, Callable[[str, Union[bytes, str]], None], Callable[[], None]]:
     dest_ext = file_ext(dest)
@@ -353,7 +363,7 @@ def open_dest(dest: str) -> Tuple[str, Callable[[str, Union[bytes, str]], None],
             zf.writestr(fname, data)
         return '', zip_write_bytes, zf.close
     else:
-        # If the output folder already exists, check that is is
+        # If the output folder already exists, check that it is
         # empty.
         #
         # Note: creating the output directory is not strictly
@@ -372,13 +382,16 @@ def open_dest(dest: str) -> Tuple[str, Callable[[str, Union[bytes, str]], None],
                 fout.write(data)
         return dest, folder_write_bytes, lambda: None
 
-#----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+
 
 @click.command()
 @click.pass_context
 @click.option('--source', help='Directory or archive name for input dataset', required=True, metavar='PATH')
 @click.option('--dest', help='Output directory or archive name for output dataset', required=True, metavar='PATH')
 @click.option('--max-images', help='Output only up to `max-images` images', type=int, default=None)
+@click.option('--force-channels', help='Force the number of channels in the image (1: grayscale, 3: RGB, 4: RGBA)', type=click.Choice([1, 3, 4]), default=None)
 @click.option('--transform', help='Input crop/resize mode', type=click.Choice(['center-crop', 'center-crop-wide', 'center-crop-tall']))
 @click.option('--resolution', help='Output resolution (e.g., \'512x512\')', metavar='WxH', type=parse_tuple)
 def convert_dataset(
@@ -386,6 +399,7 @@ def convert_dataset(
     source: str,
     dest: str,
     max_images: Optional[int],
+    force_channels: Optional[int],
     transform: Optional[str],
     resolution: Optional[Tuple[int, int]]
 ):
@@ -453,7 +467,7 @@ def convert_dataset(
     if dest == '':
         ctx.fail('--dest output filename or directory must not be an empty string')
 
-    num_files, input_iter = open_dataset(source, max_images=max_images)
+    num_files, input_iter = open_dataset(source, force_channels, max_images=max_images)
     archive_root_dir, save_bytes, close_dest = open_dest(dest)
 
     if resolution is None: resolution = (None, None)
@@ -496,7 +510,7 @@ def convert_dataset(
             error(f'Image {archive_fname} attributes must be equal across all images of the dataset.  Got:\n' + '\n'.join(err))
 
         # Save the image as an uncompressed PNG.
-        img = PIL.Image.fromarray(img, {1: 'L', 3: 'RGB', 4: 'RGBA'}[channels])
+        img = PIL.Image.fromarray(img, gen_utils.channels_dict[channels])
         image_bits = io.BytesIO()
         img.save(image_bits, format='png', compress_level=0, optimize=False)
         save_bytes(os.path.join(archive_root_dir, archive_fname), image_bits.getbuffer())
@@ -508,7 +522,10 @@ def convert_dataset(
     save_bytes(os.path.join(archive_root_dir, 'dataset.json'), json.dumps(metadata))
     close_dest()
 
-#----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+
 
 if __name__ == "__main__":
     convert_dataset() # pylint: disable=no-value-for-parameter
+
+# ----------------------------------------------------------------------------

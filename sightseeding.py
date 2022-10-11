@@ -66,17 +66,10 @@ def sightseeding(
     if len(seeds) < 2:
         ctx.fail('Please enter more than one seed to interpolate between!')
 
-    # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
-    try:
-        network_pkl = gen_utils.resume_specs[cfg][network_pkl]
-    except KeyError:
-        # Otherwise, it's a local file or an url
-        pass
-
-    print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda')
-    with dnnlib.util.open_url(network_pkl) as f:
-        G = legacy.load_network_pkl(f)['G_ema'].to(device)
+
+    # Load the network
+    G = gen_utils.load_network('G_ema', network_pkl, cfg, device)
 
     # Get center of the latent space (global or user-indicated)
     if new_center is None:

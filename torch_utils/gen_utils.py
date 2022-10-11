@@ -10,6 +10,9 @@ import click
 import numpy as np
 import torch
 
+import dnnlib
+import legacy
+
 
 # ----------------------------------------------------------------------------
 
@@ -150,6 +153,19 @@ def parse_new_center(s: str) -> Tuple[str, Union[int, Tuple[np.ndarray, Optional
         return s, new_center
 
 
+def load_network(name: str, network_pkl: Union[str, os.PathLike], cfg: Optional[str], device: torch.device):
+    """Load and return the discriminator D from a trained network."""
+    # Define the model
+    if cfg is not None:
+        assert network_pkl in resume_specs[cfg], f'This model is not available for config {cfg}!'
+        network_pkl = resume_specs[cfg][network_pkl]
+    print(f'Loading networks from "{network_pkl}"...')
+    with dnnlib.util.open_url(network_pkl) as f:
+        net = legacy.load_network_pkl(f)[name].eval().requires_grad_(False).to(device)  # type: ignore
+
+    return net
+
+
 def parse_class(G, class_idx: int, ctx: click.Context) -> Union[int, type(None)]:
     """Parse the class_idx and return it, if it's allowed by the conditional model G"""
     if G.c_dim == 0:
@@ -162,6 +178,7 @@ def parse_class(G, class_idx: int, ctx: click.Context) -> Union[int, type(None)]
         ctx.fail(f'Your class label can be at most {G.c_dim - 1}!')
     print(f'Using class {class_idx} (available labels: range({G.c_dim - 1})...)')
     return class_idx
+
 
 # ----------------------------------------------------------------------------
 

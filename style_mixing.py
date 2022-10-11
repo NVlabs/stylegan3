@@ -101,6 +101,7 @@ def main():
 @main.command(name='grid')
 @click.pass_context
 @click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
+@click.option('--cfg', type=click.Choice(['stylegan2', 'stylegan3-t', 'stylegan3-r']), help='Config of the network, used only if you want to use the pretrained models in torch_utils.gen_utils.resume_specs')
 @click.option('--device', help='Device to use for image generation; using the CPU is slower than the GPU', type=click.Choice(['cpu', 'cuda']), default='cuda', show_default=True)
 # Synthesis options
 @click.option('--row-seeds', '-rows', 'row_seeds', type=gen_utils.num_range, help='Random seeds to use for image rows', required=True)
@@ -115,6 +116,7 @@ def main():
 def generate_style_mix(
         ctx: click.Context,
         network_pkl: str,
+        cfg: Optional[str],
         device: Optional[str],
         row_seeds: List[int],
         col_seeds: List[int],
@@ -134,10 +136,10 @@ def generate_style_mix(
         --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metfaces.pkl
     """
     # TODO: add class_idx
-    print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda') if torch.cuda.is_available() and device == 'cuda' else torch.device('cpu')
-    with dnnlib.util.open_url(network_pkl) as f:
-        G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
+
+    # Load the network
+    G = gen_utils.load_network('G_ema', network_pkl, cfg, device)
 
     # Setup for using CPU
     if device.type == 'cpu':
@@ -227,6 +229,7 @@ def generate_style_mix(
 @main.command(name='video')
 @click.pass_context
 @click.option('--network', 'network_pkl', help='Network pickle filename', required=True)
+@click.option('--cfg', type=click.Choice(['stylegan2', 'stylegan3-t', 'stylegan3-r']), help='Config of the network, used only if you want to use the pretrained models in torch_utils.gen_utils.resume_specs')
 # Synthesis options
 @click.option('--trunc', 'truncation_psi', type=float, help='Truncation psi', default=1, show_default=True)
 @click.option('--noise-mode', type=click.Choice(['const', 'random', 'none']), help='Noise mode', default='const', show_default=True)
@@ -245,6 +248,7 @@ def generate_style_mix(
 def random_stylemix_video(
         ctx: click.Context,
         network_pkl: str,
+        cfg: Optional[str],
         row_seed: int,
         columns: str,
         col_styles: List[int],
@@ -274,10 +278,11 @@ def random_stylemix_video(
     # TODO: add class_idx
     # Calculate number of frames
     num_frames = int(np.rint(duration_sec * fps))
-    print(f'Loading networks from "{network_pkl}"...')
+
     device = torch.device('cuda')
-    with dnnlib.util.open_url(network_pkl) as f:
-        G = legacy.load_network_pkl(f)['G_ema'].to(device)
+
+    # Load the network
+    G = gen_utils.load_network('G_ema', network_pkl, cfg, device)
 
     # Stabilize/anchor the latent space
     if anchor_latent_space:

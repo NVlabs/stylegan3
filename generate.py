@@ -120,18 +120,10 @@ def generate_images(
     if len(seeds) < 1:
         ctx.fail('Use `--seeds` to specify at least one seed.')
 
-    # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
-    try:
-        network_pkl = gen_utils.resume_specs[cfg][network_pkl]
-    except KeyError:
-        # Otherwise, it's a local file or an url
-        pass
-
-    print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda') if torch.cuda.is_available() and device == 'cuda' else torch.device('cpu')
 
-    with dnnlib.util.open_url(network_pkl) as f:
-        G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
+    # Load the network
+    G = gen_utils.load_network('G_ema', network_pkl, cfg, device)
 
     if available_layers:
         click.secho(f'Printing available layers (name, channels and size) for "{network_pkl}"...', fg='blue')
@@ -363,18 +355,11 @@ def random_interpolation_video(
     # Sanity check
     if len(seeds) < 1:
         ctx.fail('Use `--seeds` to specify at least one seed.')
-    # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
-    try:
-        network_pkl = gen_utils.resume_specs[cfg][network_pkl]
-    except KeyError:
-        # Otherwise, it's a local file or an url
-        pass
 
-    print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda')
 
-    with dnnlib.util.open_url(network_pkl) as f:
-        G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
+    # Load the network
+    G = gen_utils.load_network('G_ema', network_pkl, cfg, device)
 
     # Print the available layers in the model
     if available_layers:
@@ -609,18 +594,11 @@ def circular_video(
     """
     Generate a circular interpolation video in two random axes of Z, given a seed
     """
-    # If model name exists in the gen_utils.resume_specs dictionary, use it instead of the full url
-    try:
-        network_pkl = gen_utils.resume_specs[cfg][network_pkl]
-    except KeyError:
-        # Otherwise, it's a local file or an url
-        pass
 
-    print(f'Loading networks from "{network_pkl}"...')
     device = torch.device('cuda')
 
-    with dnnlib.util.open_url(network_pkl) as f:
-        G = legacy.load_network_pkl(f)['G_ema'].to(device)  # type: ignore
+    # Load the network
+    G = gen_utils.load_network('G_ema', network_pkl, cfg, device)
 
     # Get the labels, if the model is conditional
     class_idx = gen_utils.parse_class(G, class_idx, ctx)
