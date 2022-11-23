@@ -239,7 +239,7 @@ def visual_reactive_interpolation(
                                                                   std=[0.229, 0.224, 0.225])])
             frame = preprocess(frame).unsqueeze(0).to(device)
             fake_z = vgg16_features.get_layers_features(frame, layers=[vgg16_layer])[0]
-            fake_z = fake_z.view(1, 512, -1).mean(2)
+            fake_z = fake_z.view(1, 512, -1).mean(2)  # [1, C, H, W] => [1, C]; can be used in any layer
 
         elif encoder == 'clip':
             frame = Image.fromarray(frame)  # [0, 255]

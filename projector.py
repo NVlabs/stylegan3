@@ -173,6 +173,10 @@ def project(
         if synth_images.shape[2] > 256:
             synth_images = F.interpolate(synth_images, size=(256, 256), mode='area')
 
+        # Reshape synthetic images if G was trained with grayscale data
+        if synth_images.shape[1] == 1:
+            synth_images = synth_images.repeat(1, 3, 1, 1)  # [1, 1, 256, 256] => [1, 3, 256, 256]
+
         # Features for synth images.
         if loss_paper == 'sgan2':
             synth_features = vgg16(synth_images, resize_images=False, return_lpips=True)
