@@ -1,4 +1,3 @@
-name: stylegan3
 channels:
   - pytorch
   - nvidia
