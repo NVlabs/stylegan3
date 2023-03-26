@@ -1,3 +1,6 @@
 out/
+images/
+diagrams/*
+!diagrams/*.png
 __pycache__
 ffhq1024.pkl
