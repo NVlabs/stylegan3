@@ -1,0 +1,21 @@
+IMAGE GENERATION & IMAGE STORING:
+	- Study if using LMDB or other type of database is a good idea
+	- Study if using Discriminator to discard "bad" images is necessary
+
+IMAGE PROJECTION:
+	- Use projector/optimizer from PDillis/stylegan3-fun
+	- Use encoder from yuval-alaluf/stylegan3-editing
+	- Try to optimize the resultant latent vector of the image encoding
+
+LABEL EXTRACTION:
+	- Use age classifier into N brackets || Use age predictor to label the ages linearly
+	- Binary class (Sex)
+	- Study best way to store labels
+
+DIRECTION EXTRACTION:
+	- Use SVM (ovo) for binary attributes (Sex)
+	- Use SVM (ovr) for multiclass attributes (Age, skin tone, ...)
+	- Use linear regression for continuous attributes (Age)
+
+IMAGE EDITOR:
+	- Design and implement GUI
