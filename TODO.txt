@@ -4,7 +4,7 @@ IMAGE GENERATION & IMAGE STORING:
 
 IMAGE PROJECTION:
 	- Use projector/optimizer from PDillis/stylegan3-fun
-	- Use encoder from yuval-alaluf/stylegan3-editing
+	x Use encoder from yuval-alaluf/stylegan3-editing
 	- Try to optimize the resultant latent vector of the image encoding
 
 LABEL EXTRACTION:

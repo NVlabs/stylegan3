@@ -77,6 +77,7 @@ def make_transform(translate: Tuple[float,float], angle: float):
 @click.option('--rotate', help='Rotation angle in degrees', type=float, default=0, show_default=True, metavar='ANGLE')
 @click.option('--outdir_img', help='Where to save the output images', type=str, default="out/projected_images", required=False, metavar='DIR')
 @click.option('--latent_vector', help='Where to find the latent vector', type=str, required=True, metavar='DIR')
+@click.option('--w_space', help='Whether to use W space', is_flag=True, default=False, show_default=True)
 def generate_images(
     network_pkl: str,
     truncation_psi: float,
@@ -86,15 +87,9 @@ def generate_images(
     rotate: float,
     class_idx: Optional[int],
     latent_vector: str,
+    w_space: bool
 ):
-    """Generate images using pretrained network pickle.
-
-    Examples:
-
-    # Generate an image using pre-trained AFHQv2 model ("Ours" in Figure 1, left).
-    python generate.py --outdir_img=out --trunc=1 --seeds=2 --network=ffhq1024.pkl
-
-    """
+   
     print('Loading networks from "%s"...' % network_pkl)
     device = torch.device('cuda')
     with dnnlib.util.open_url(network_pkl) as f:
@@ -115,20 +110,23 @@ def generate_images(
 
     # Open latent vector file (npy) and store in a list.
     
-    seeds = np.load(latent_vector)
+    seeds = np.load(latent_vector, allow_pickle=True).item()
 
     # Generate images.
-    for idx, z in enumerate(seeds):
-        print(z)
+    print('Generating images...')
+    for key, latent_vector in seeds.items():
         if hasattr(G.synthesis, 'input'):
             m = make_transform(translate, rotate)
             m = np.linalg.inv(m)
             G.synthesis.input.transform.copy_(torch.from_numpy(m))
-
-        img = G(z, label, truncation_psi=truncation_psi, noise_mode=noise_mode)
+        if w_space:
+            latent_vector = torch.from_numpy(latent_vector[0]).to(device).unsqueeze(0)
+            img = G.synthesis(latent_vector, noise_mode=noise_mode)
+        else:
+            img = G(latent_vector, label, truncation_psi=truncation_psi, noise_mode=noise_mode)
         img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
 
-        PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir_img}/{idx:04d}.png')
+        PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir_img}/{key}')
     
 
 #----------------------------------------------------------------------------
