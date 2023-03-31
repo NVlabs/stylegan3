@@ -81,6 +81,7 @@ def make_transform(translate: Tuple[float,float], angle: float):
 @click.option('--outdir_img', help='Where to save the output images', type=str, default="out/images", required=False, metavar='DIR')
 @click.option('--outdir_seeds', help='Where to save the latent vector', type=str, default="out/seeds", required=False, metavar='DIR')
 @click.option('--append_latent', is_flag=True, help='If true, append the latent vector to the latent vector file (if it exists). Otherwise, overwrite the file.')
+@click.option('--add_attributes', is_flag=True, help='If true, calculates the attributes of the generated images and stores them')
 def generate_images(
     network_pkl: str,
     seeds: List[int],
@@ -92,8 +93,8 @@ def generate_images(
     rotate: float,
     class_idx: Optional[int],
     w_space: bool, 
-    latent_vector: str,
-    append_latent: bool
+    append_latent: bool,
+    add_attributes: bool
 ):
     """Generate images using pretrained network pickle.
 
@@ -150,8 +151,8 @@ def generate_images(
 
         img = G(z, label, truncation_psi=truncation_psi, noise_mode=noise_mode)
         img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
-
         PIL.Image.fromarray(img[0].cpu().numpy(), 'RGB').save(f'{outdir_img}/seed{seed:04d}.png')
+
     
     vector_seeds = np.concatenate(vector_seeds, axis=0)
     if(append_latent):

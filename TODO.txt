@@ -3,9 +3,9 @@ IMAGE GENERATION & IMAGE STORING:
 	- Study if using Discriminator to discard "bad" images is necessary
 
 IMAGE PROJECTION:
-	- Use projector/optimizer from PDillis/stylegan3-fun
-	x Use encoder from yuval-alaluf/stylegan3-editing
-	- Try to optimize the resultant latent vector of the image encoding
+	x Use projector/optimizer from PDillis/stylegan3-fun -> works
+	x Use encoder from yuval-alaluf/stylegan3-editing -> works
+	x Try to optimize the resultant latent vector of the image encoding -> works, but has bad results
 
 LABEL EXTRACTION:
 	- Use age classifier into N brackets || Use age predictor to label the ages linearly
