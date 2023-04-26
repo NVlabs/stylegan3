@@ -22,3 +22,5 @@ dependencies:
     - pyopengl==3.1.5
     - imageio-ffmpeg==0.4.3
     - pyspng
+    - psutil
+    - tensorboard
