@@ -84,7 +84,8 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
 
     # Render video.
     video_out = imageio.get_writer(mp4, mode='I', fps=60, codec='libx264', **video_kwargs)
-    modifier = 1
+    modifier = 1.0
+    modifier_strength = 1.01
     for frame_idx in tqdm(range(num_keyframes * w_frames)):
         imgs = []
         for yi in range(grid_h):
@@ -93,7 +94,7 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
                 w = torch.from_numpy(interp(frame_idx / w_frames)).to(device)
                 if feature is not None:
                     w[feature] = w[feature] * modifier
-                    modifier + .01
+                    modifier *= modifier_strength
                 img = G.synthesis(ws=w.unsqueeze(0), noise_mode='const')[0]
                 imgs.append(img)
         video_out.append_data(layout_grid(torch.stack(imgs), grid_w=grid_w, grid_h=grid_h))
